@@ -4,6 +4,9 @@ import UIKit
 /// It never claims to exercise ReplayKit or another application's screen.
 @MainActor
 enum DemoCaptureFactory {
+    #if DEBUG
+    private static var activeDemoLease: CaptureSessionLease?
+    #endif
     static func seed(repository: CaptureSessionRepository) throws {
         guard try repository.listSessions().isEmpty else { return }
         for index in 0..<3 {
@@ -27,9 +30,32 @@ enum DemoCaptureFactory {
                ProcessInfo.processInfo.arguments.contains("--uitesting") {
                 manifest.diagnostics = seamDiagnostics()
             }
+            if index == 1, ProcessInfo.processInfo.arguments.contains("--demo-startup-diagnostics"),
+               ProcessInfo.processInfo.arguments.contains("--uitesting") {
+                manifest.diagnostics = startupDiagnostics()
+                manifest.startWarning = "画面变化后重新确定了起点，请检查图片开头是否完整。"
+                manifest.stopReason = "广播已结束。"
+            }
             #endif
             try repository.saveManifest(manifest)
         }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--demo-startup-waiting"),
+           ProcessInfo.processInfo.arguments.contains("--uitesting") {
+            let id = UUID(uuidString: "D3E00000-0000-4000-8000-000000000005")!
+            var manifest = CaptureSessionManifest(id: id, isDemo: true)
+            try FileManager.default.createDirectory(at: repository.sessionDirectory(id: id), withIntermediateDirectories: true)
+            manifest.diagnostics = startupDiagnostics()
+            manifest.diagnostics?.acceptedFrames = 0
+            manifest.diagnostics?.startupWaitingState = "waitingForTarget"
+            manifest.diagnostics?.startupRecoveryMethod = nil
+            if ProcessInfo.processInfo.arguments.contains("--demo-startup-paused") {
+                manifest.diagnostics?.lifecycleState = "paused"
+            }
+            try repository.saveManifest(manifest)
+            activeDemoLease = try repository.acquireSessionLease(id: id)
+        }
+        #endif
         if ProcessInfo.processInfo.arguments.contains("--demo-empty-capture") {
             // An explicit synthetic failure fixture exercises legacy zero-frame presentation.
             let id = UUID(uuidString: "D3E00000-0000-4000-8000-000000000004")!
@@ -46,6 +72,21 @@ enum DemoCaptureFactory {
     #if DEBUG
     /// Explicit synthetic metadata in the isolated --demo repository only.
     /// It verifies presentation, not real capture or seam-selection quality.
+    private static func startupDiagnostics() -> CaptureDiagnostics {
+        var diagnostics = CaptureDiagnostics()
+        diagnostics.receivedVideoSamples = 72; diagnostics.observedFrames = 20
+        diagnostics.acceptedFrames = 12; diagnostics.rejectedFrames = 7
+        diagnostics.skippedSamples = 52; diagnostics.provisionalReplacements = 1
+        diagnostics.startupRecoveryMethod = "adjacentSceneOverlap"
+        diagnostics.startupWaitingState = "confirmed"; diagnostics.startupWaitingSeconds = 8.5
+        diagnostics.stableCandidateFrameCount = 2
+        diagnostics.lastStage = "stitching"; diagnostics.terminationCause = "systemStop"
+        diagnostics.lifecycleState = "active"
+        diagnostics.maximumProcessingMilliseconds = 38
+        diagnostics.pauseCount = 1; diagnostics.recoveredResumeCount = 1
+        return diagnostics
+    }
+
     private static func seamDiagnostics() -> CaptureDiagnostics {
         var diagnostics = CaptureDiagnostics()
         diagnostics.observedFrames = 41; diagnostics.acceptedFrames = 40

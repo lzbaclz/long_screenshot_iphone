@@ -22,6 +22,8 @@ final class SampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
     private var lastFrameUptime = 0.0
     private var lastMotionActiveTime = 0.0
     private var continuity = CaptureContinuityPolicy()
+    private var receivedVideoSamples = 0
+    private var startupWaitingSeconds = 0.0
     private var skippedSamples = 0
     private var maximumProcessingMilliseconds = 0.0
     private var originalWidth = 0
@@ -57,8 +59,10 @@ final class SampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
         // Audio is deliberately ignored even if the system microphone switch is enabled.
         guard sampleBufferType == .video else { return }
         processingQueue.sync {
+            receivedVideoSamples += 1
             guard lifecycle.canProcessFrames, let configuration = manifest?.configuration else { return }
             let now = ProcessInfo.processInfo.systemUptime
+            if framePipeline?.hasStarted != true { startupWaitingSeconds = lifecycle.activeElapsed(at: now) }
             guard now - lastFrameUptime >= 0.15 else { skippedSamples += 1; return }
             defer {
                 maximumProcessingMilliseconds = max(maximumProcessingMilliseconds,
@@ -84,7 +88,7 @@ final class SampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
     override func broadcastPaused() {
         processingQueue.sync {
             let now = ProcessInfo.processInfo.systemUptime
-            guard lifecycle.pause(at: now, requiresOverlap: framePipeline?.hasReference == true) else { return }
+            guard lifecycle.pause(at: now, requiresOverlap: framePipeline?.hasStarted == true) else { return }
             // Keep only existing bounded grayscale references and durable PNGs.
             // A pause is not a failure and must not call finishBroadcastWithError.
             continuity.accept(); imageContext.clearCaches()
@@ -113,8 +117,8 @@ final class SampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
             // positively attributable to the app's own manual stop action.
             let requested = manifest.map { repository?.hasStopRequest(id: $0.id) == true } ?? false
             refreshDiagnostics()
-            manifest?.diagnostics?.terminationCause = requested ? "manual" : "systemStop"
-            finishSession(reason: requested ? "已手动结束捕捉。" : "捕捉已由系统结束。", partial: false)
+            manifest?.diagnostics?.terminationCause = requested ? "manual" : "systemEntryStop"
+            finishSession(reason: requested ? "已手动结束捕捉。" : "广播已结束。", partial: false)
         }
     }
 
@@ -333,6 +337,13 @@ final class SampleHandler: RPBroadcastSampleHandler, @unchecked Sendable {
         // Seam records describe repository transactions, not alignment plans.
         stats.seams = manifest?.diagnostics?.seams
         stats.stageTimings = .combined(pipeline: pipelineTimings, adapter: adapterTimings)
+        stats.receivedVideoSamples = receivedVideoSamples
+        if framePipeline?.hasStarted != true, !lifecycle.isFinished {
+            startupWaitingSeconds = lifecycle.activeElapsed(at: ProcessInfo.processInfo.systemUptime)
+        }
+        stats.startupWaitingSeconds = startupWaitingSeconds
+        stats.startupWaitingState = framePipeline?.hasStarted == true ? "confirmed"
+            : framePipeline?.hasReference == true ? "waitingForTarget" : "waitingForFrames"
         stats.skippedSamples = skippedSamples
         stats.maximumProcessingMilliseconds = maximumProcessingMilliseconds
         stats.lifecycleState = lifecycle.state.rawValue

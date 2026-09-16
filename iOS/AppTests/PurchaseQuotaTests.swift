@@ -179,7 +179,7 @@ final class CaptureNoticeTests: XCTestCase {
         let session = CaptureSessionManifest()
         XCTAssertFalse(session.isFailedCapture)
         XCTAssertFalse(session.isSavedPartialCapture)
-        XCTAssertEqual(session.stateLabel, "捕捉中")
+        XCTAssertEqual(session.stateLabel, "等待目标内容")
     }
 
     func testSingleFrameFallbackIsSavedButNeverLabelledCompletedLongImage() {
@@ -190,6 +190,61 @@ final class CaptureNoticeTests: XCTestCase {
         XCTAssertTrue(session.isSavedPartialCapture)
         XCTAssertFalse(session.isFailedCapture)
         XCTAssertEqual(session.stateLabel, "仅保留单屏")
+    }
+
+    func testLegacyDiagnosticsDecodeWithoutPretendingNewCountersWereRecorded() throws {
+        let legacy = Data(#"{"observedFrames":12,"acceptedFrames":0,"rejectedFrames":11,"regionAttempts":4,"recoveredGaps":0,"provisionalReplacements":1,"skippedSamples":3,"maximumProcessingMilliseconds":24,"lastStage":"alignment","terminationCause":"systemStop"}"#.utf8)
+        let diagnostics = try JSONDecoder().decode(CaptureDiagnostics.self, from: legacy)
+        XCTAssertNil(diagnostics.receivedVideoSamples)
+        XCTAssertNil(diagnostics.startupRecoveryMethod)
+        XCTAssertNil(diagnostics.startupWaitingState)
+        XCTAssertNil(diagnostics.startupWaitingSeconds)
+        XCTAssertNil(diagnostics.stableCandidateFrameCount)
+        XCTAssertEqual(diagnostics.startupWaitingLabel, "未记录")
+        XCTAssertEqual(diagnostics.observedFrames, 12)
+        XCTAssertEqual(diagnostics.provisionalReplacements, 1)
+        XCTAssertEqual(diagnostics.terminationLabel, "系统入口结束（也可能由你手动停止）")
+        XCTAssertEqual(try JSONDecoder().decode(CaptureDiagnostics.self, from: JSONEncoder().encode(diagnostics)), diagnostics)
+    }
+
+    func testStartupWaitingUsesConfirmedImageAndActiveWaitingTime() {
+        var session = CaptureSessionManifest()
+        session.diagnostics = .init()
+        session.diagnostics?.startupWaitingSeconds = 0.5
+        session.provisionalFrame = .init(fileName: "candidate.png", pixelWidth: 100, pixelHeight: 200)
+        XCTAssertTrue(session.isWaitingForTarget)
+        XCTAssertEqual(session.activeCaptureTitle, "等待目标内容")
+        XCTAssertFalse(session.activeCaptureMessage.contains("还没有确认"), "Brief startup is normal, not a failure")
+        session.diagnostics?.startupWaitingSeconds = 8
+        XCTAssertTrue(session.activeCaptureMessage.contains("当前尚未形成长图"))
+        session.diagnostics?.lifecycleState = "paused"
+        XCTAssertEqual(session.activeCaptureTitle, "等待系统恢复捕捉")
+        XCTAssertFalse(session.activeCaptureMessage.contains("缓慢"))
+        session.diagnostics?.lifecycleState = "awaitingOverlap"
+        XCTAssertEqual(session.activeCaptureTitle, "恢复后重新确认画面衔接")
+        session = manifestWithImage()
+        session.diagnostics = .init(); session.diagnostics?.startupWaitingSeconds = 12
+        XCTAssertFalse(session.isWaitingForTarget)
+        XCTAssertEqual(session.activeCaptureTitle, "正在为你保留内容")
+        XCTAssertFalse(session.activeCaptureMessage.contains("尚未形成长图"))
+    }
+
+    func testSystemEntryStopAndLegacyReasonsLocalizeWithoutImplyingSystemFailure() throws {
+        for language in ["en", "zh-Hans"] {
+            let path = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj"))
+            let bundle = try XCTUnwrap(Bundle(path: path))
+            let ended = language == "en" ? "Broadcast ended." : "广播已结束。"
+            for key in ["广播已结束。", "捕捉已由系统结束。"] {
+                XCTAssertEqual(CaptureMessageLocalization.text(key, bundle: bundle), ended)
+            }
+            let composite = CaptureMessageLocalization.text("未写入可用画面。 捕捉已由系统结束。", bundle: bundle)
+            XCTAssertTrue(composite.hasSuffix(ended))
+            for cause in ["systemStop", "systemEnded", "systemEntryStop"] {
+                var diagnostics = CaptureDiagnostics(); diagnostics.terminationCause = cause
+                let label = bundle.localizedString(forKey: diagnostics.terminationLabel, value: nil, table: nil)
+                XCTAssertTrue(label.contains(language == "en" ? "manual stop" : "手动停止"))
+            }
+        }
     }
 
     private func manifestWithImage() -> CaptureSessionManifest {

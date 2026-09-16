@@ -64,7 +64,7 @@ final class ForegroundPipelineIntegrationTests: XCTestCase {
             _ = try pipeline.ingest(frame) { self.image(frame) }
         }
         XCTAssertTrue(pipeline.hasStarted)
-        lifecycle.pause(at: 2, requiresOverlap: pipeline.hasReference)
+        lifecycle.pause(at: 2, requiresOverlap: pipeline.hasStarted)
         XCTAssertFalse(lifecycle.canProcessFrames)
         lifecycle.resume(at: 30)
         let gap = try fixture(offset: 4_500)
@@ -86,7 +86,7 @@ final class ForegroundPipelineIntegrationTests: XCTestCase {
         XCTAssertFalse(lifecycle.finish(at: 33))
     }
 
-    func testPausedProvisionalCaptureDoesNotReplaceOriginAcrossAStableUnknownScene() throws {
+    func testPausedProvisionalCaptureCanReplaceOriginAcrossAStableTargetScene() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: folder) }
         let repository = try CaptureSessionRepository(rootURL: folder)
@@ -94,21 +94,18 @@ final class ForegroundPipelineIntegrationTests: XCTestCase {
         let pipeline = CaptureFramePipeline(configuration: .init(), repository: repository, sessionID: manifest.id)
         let first = try fixture(offset: 700)
         _ = try pipeline.ingest(first) { self.image(first) }
-        let candidate = pipeline.provisionalFrame
         var lifecycle = CaptureLifecyclePolicy()
-        lifecycle.pause(at: 1, requiresOverlap: pipeline.hasReference)
+        lifecycle.pause(at: 1, requiresOverlap: pipeline.hasStarted)
         lifecycle.resume(at: 30)
         let other = try fixture(offset: 4_500, seed: 991)
-        for _ in 0..<4 {
+        for _ in 0..<3 {
             let result = try pipeline.ingest(other, allowProvisionalReplacement: !lifecycle.needsOverlapAfterResume) { self.image(other) }
-            XCTAssertEqual(result.status, .rejected)
-            XCTAssertFalse(result.replacedProvisionalStart)
             XCTAssertTrue(result.strips.isEmpty)
         }
-        XCTAssertEqual(pipeline.provisionalFrame, candidate)
-        XCTAssertEqual(try repository.loadSession(id: manifest.id).provisionalFrame, candidate)
-        XCTAssertTrue(pixels(try XCTUnwrap(pipeline.takeSingleFrameFallback())) == first.pixels)
-        XCTAssertTrue(lifecycle.needsOverlapAfterResume)
+        XCTAssertEqual(pipeline.diagnostics.provisionalReplacements, 1)
+        XCTAssertEqual(try repository.loadSession(id: manifest.id).provisionalFrame, pipeline.provisionalFrame)
+        XCTAssertTrue(pixels(try XCTUnwrap(pipeline.takeSingleFrameFallback())) == other.pixels)
+        XCTAssertFalse(lifecycle.needsOverlapAfterResume)
     }
 
     private let width = 144, height = 800, top = 70, bottom = 90

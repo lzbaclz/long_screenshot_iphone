@@ -43,7 +43,6 @@ final class CaptureFramePipeline {
     let configuration: AlignmentConfiguration
     private(set) var effectiveConfiguration: AlignmentConfiguration
     private var stitcher: StreamStitcher
-    private var probes: [StreamStitcher] = []
     private var candidateURL: URL?
     private let candidateRepository: CaptureSessionRepository?
     private let candidateSessionID: UUID?
@@ -52,6 +51,7 @@ final class CaptureFramePipeline {
     private var candidateAnalysis: GrayFrame?
     private var armingRejections = 0
     private var rejectedSceneAnalysis: GrayFrame?
+    private var rejectedSceneURL: URL?
     private var wasRejected = false
     private var measuredOtherSeconds = 0.0
     private(set) var hasStarted = false
@@ -65,10 +65,16 @@ final class CaptureFramePipeline {
         self.candidateRepository = repository; self.candidateSessionID = sessionID
     }
 
-    deinit { clearCandidate() }
+    deinit { clearCandidate(); clearRejectedScene() }
 
     func ingest(_ analysis: GrayFrame, allowProvisionalReplacement: Bool = true,
                 makeImage: () throws -> CGImage) throws -> CaptureFrameResult {
+        do { return try ingestFrame(analysis, allowProvisionalReplacement: allowProvisionalReplacement, makeImage: makeImage) }
+        catch { clearRejectedScene(); throw error }
+    }
+
+    private func ingestFrame(_ analysis: GrayFrame, allowProvisionalReplacement: Bool,
+                             makeImage: () throws -> CGImage) throws -> CaptureFrameResult {
         let began = ProcessInfo.processInfo.systemUptime
         let excludedBefore = measuredOtherSeconds
         defer {
@@ -80,109 +86,55 @@ final class CaptureFramePipeline {
             return try arm(analysis, replaced: false, makeImage: makeImage)
         }
         var updated = stitcher
-        let automaticArming = !hasStarted && automaticallyFindRegion
-        // Automatic arming is verified by regional probes and a full replay;
-        // matching the uncropped whole screen here repeats an unused search.
-        var decision = automaticArming
-            ? StitchDecision(status: .rejected, sourceRows: nil, contentOffset: 0, furthestOffset: 0,
-                             confidence: 0, rejection: .insufficientOverlap)
-            : updated.ingest(analysis)
-        if !automaticArming {
-            if let foreground = updated.lastForegroundRegistration {
-                diagnostics.foregroundStatus = foreground.status.rawValue
-                diagnostics.foregroundCandidateCount = foreground.candidateCount
-                diagnostics.foregroundSupportCount = foreground.supportCount
-            } else {
-                diagnostics.foregroundStatus = decision.status == .unchanged ? "unchanged" : nil
-                diagnostics.foregroundCandidateCount = 0; diagnostics.foregroundSupportCount = 0
-            }
-        }
-        var verifiedForegroundStart = false
+        var decision: StitchDecision
         var selectedStart: VerifiedStart?
-        if automaticArming, let reference = candidateAnalysis {
-            let foreground = measure(.foregroundRegistration) {
-                ForegroundMotionRegistration.analyze(reference: reference, current: analysis, configuration: configuration)
-            }
-            diagnostics.foregroundStatus = foreground.status.rawValue
-            diagnostics.foregroundCandidateCount = foreground.candidateCount
-            diagnostics.foregroundSupportCount = foreground.supportCount
-            switch foreground.status {
-            case .matched:
-                armingRejections = 0; rejectedSceneAnalysis = nil
-                diagnostics.regionAttempts += 1
-                guard let displacement = foreground.displacement, let insets = foreground.matchingInsets,
-                      let verified = verifyStart(analysis, displacement: displacement, preferredInsets: insets) else {
-                    return reject(arming: true, region: true)
-                }
-                updated = verified.stitcher; decision = verified.decision
-                effectiveConfiguration = verified.configuration
+        var replacedStart = false
+        if !hasStarted, let reference = candidateAnalysis {
+            let attempt = evaluateStart(reference: reference, current: analysis)
+            if let verified = attempt.verified {
                 selectedStart = verified
-                verifiedForegroundStart = true
-            case .rejected:
-                // Failed moving foreground is not a new anchor. A settled,
-                // identical replacement scene may become one only after several
-                // samples, before stitching and outside resume recovery.
-                if let replacement = try stableSceneReplacement(analysis,
-                    allowed: allowProvisionalReplacement, makeImage: makeImage) { return replacement }
-                let rejected = reject(arming: true, region: false)
-                diagnostics.lastStage = "foreground"
-                return rejected
-            case .unchanged:
-                armingRejections = 0; rejectedSceneAnalysis = nil
-                return .init(status: .unchanged, strips: [], isArming: true)
-            case .notLayered: break
-            }
-        }
-        if automaticArming && !verifiedForegroundStart {
-            var hypotheses: [StitchDecision] = []
-            var checkedOffsets: Set<Int> = []
-            var verifiedOffsets: [Int: VerifiedStart] = [:]
-            var accepted: [VerifiedStart] = []
-            for probe in probes {
-                var copy = probe
-                let hypothesis = copy.ingest(analysis)
-                hypotheses.append(hypothesis)
-                guard hypothesis.status == .advanced else { continue }
-                if checkedOffsets.insert(hypothesis.contentOffset).inserted {
-                    if checkedOffsets.count == 1 { diagnostics.regionAttempts += 1 }
-                    if let verified = verifyStart(analysis, displacement: hypothesis.contentOffset) {
-                        verifiedOffsets[hypothesis.contentOffset] = verified
+            } else if attempt.status == .rejected {
+                if allowProvisionalReplacement {
+                    let recovery = rejectedSceneAnalysis.map { evaluateStart(reference: $0, current: analysis) }
+                    if let previous = rejectedSceneAnalysis, let recovered = recovery?.verified {
+                        // Promote only after the SAME strict verification used for
+                        // the original start. Publishing the still is transactional.
+                        guard let image = loadImage(at: rejectedSceneURL) else {
+                            throw CaptureStorageError.imageEncodingFailed
+                        }
+                        _ = try arm(previous, replaced: true) { image }
+                        selectedStart = recovered; replacedStart = true
+                        diagnostics.startupRecoveryMethod = "adjacentSceneOverlap"
+                    } else if recovery?.status == .unchanged,
+                              let previous = rejectedSceneAnalysis, !locallyStable(previous, analysis) {
+                        // Strictly unchanged body can coexist with changing system
+                        // chrome. Retain the earliest target screen without treating
+                        // changing outer pixels as evidence for stable promotion.
+                        armingRejections = 1; diagnostics.stableCandidateFrameCount = 1
+                    } else if let replacement = try stableSceneReplacement(analysis, makeImage: makeImage) {
+                        return replacement
                     }
+                } else { clearRejectedScene() }
+                if selectedStart == nil {
+                    let result = reject(arming: true, region: attempt.regionRejected)
+                    if attempt.foregroundRejected { diagnostics.lastStage = "foreground" }
+                    return result
                 }
-                if let verified = verifiedOffsets[hypothesis.contentOffset] { accepted.append(verified) }
-                // A keyboard can produce a plausible but wrong probe offset.
-                // Only offsets independently replayed in a moving region may
-                // vote or conflict; raw probe guesses never authorize a join.
-                let offsets = Set(accepted.map { $0.decision.contentOffset })
-                if offsets.count > 1 {
-                    armingRejections = 0; rejectedSceneAnalysis = nil
-                    return reject(arming: true, region: true)
-                }
-                if accepted.count >= 2 { break }
-            }
-            if let verified = accepted.first {
-                updated = verified.stitcher; decision = verified.decision
-                effectiveConfiguration = verified.configuration
-                selectedStart = verified
-            } else if !hypotheses.isEmpty, hypotheses.allSatisfy({ $0.status == .unchanged }) {
-                armingRejections = 0; rejectedSceneAnalysis = nil
+            } else {
+                // The original candidate remains first priority, including when
+                // it becomes visible again after a transient unrelated screen.
+                clearRejectedScene()
                 return .init(status: .unchanged, strips: [], isArming: true)
-            } else if !checkedOffsets.isEmpty {
-                armingRejections = 0; rejectedSceneAnalysis = nil
-                // Preserve the original frame while there is a motion
-                // hypothesis whose region is still uncertain.
-                return reject(arming: true, region: true)
             }
-            // One stationary local patch does not make the whole frame still.
-            // Mixed unchanged/rejected windows take the existing bounded
-            // scene-replacement path, with its visible starting-point warning.
+            guard let verified = selectedStart else { return reject(arming: true, region: false) }
+            updated = verified.stitcher; decision = verified.decision
+            effectiveConfiguration = verified.configuration
+        } else {
+            decision = updated.ingest(analysis)
+            recordForeground(updated.lastForegroundRegistration, status: decision.status)
+            if decision.status == .rejected { return reject(arming: false, region: false) }
         }
-        if decision.status == .rejected {
-            if !hasStarted, let replacement = try stableSceneReplacement(analysis,
-                allowed: allowProvisionalReplacement, makeImage: makeImage) { return replacement }
-            return reject(arming: !hasStarted, region: false)
-        }
-        armingRejections = 0; rejectedSceneAnalysis = nil
+        clearRejectedScene()
         if decision.status == .unchanged {
             if hasStarted { stitcher = updated }
             recoveredIfNeeded()
@@ -220,16 +172,20 @@ final class CaptureFramePipeline {
             diagnostics.fixedBandTop = selectedStart?.fixedBand?.top
             diagnostics.fixedBandBottom = selectedStart?.fixedBand?.bottom
         }
-        hasStarted = true; candidateAnalysis = nil; probes.removeAll()
+        if !hasStarted {
+            diagnostics.startupRecoveryMethod = diagnostics.startupRecoveryMethod ?? "initialOverlap"
+            diagnostics.startupWaitingState = "confirmed"
+        }
+        hasStarted = true; candidateAnalysis = nil
         stitcher = updated; diagnostics.acceptedFrames += 1; diagnostics.lastStage = "stitching"
         recoveredIfNeeded()
-        return .init(status: decision.status, strips: strips, isArming: false)
+        return .init(status: decision.status, strips: strips, isArming: false, replacedProvisionalStart: replacedStart)
     }
 
     /// This is explicitly a single screen fallback, never evidence of a long image.
     func takeSingleFrameFallback() -> CGImage? {
         guard !firstCommitConfirmed else { return nil }
-        defer { clearCandidate(); candidateAnalysis = nil; probes.removeAll() }
+        defer { clearCandidate(); clearRejectedScene(); candidateAnalysis = nil }
         return loadCandidate()
     }
 
@@ -257,37 +213,141 @@ final class CaptureFramePipeline {
         }
         candidateURL = url
         if candidateRepository == nil, let oldURL { try? FileManager.default.removeItem(at: oldURL) }
-        candidateAnalysis = analysis; armingRejections = 0; rejectedSceneAnalysis = nil
+        candidateAnalysis = analysis; clearRejectedScene()
         stitcher = StreamStitcher(configuration: configuration); _ = stitcher.ingest(analysis)
-        let windows = [
-            (analysis.height / 5, analysis.height / 5),
-            (analysis.height / 8, analysis.height / 8),
-            // Chat keyboards occupy the lower third to half of a screen.
-            // Search the upper body as well as symmetric central windows.
-            (analysis.height / 10, analysis.height * 2 / 5),
-            (analysis.height / 10, analysis.height / 2),
-            (analysis.height / 3, analysis.height / 3)
-        ]
-        probes = windows.map { top, bottom in
-            var region = configuration; region.topInset = top; region.bottomInset = bottom
-            var probe = StreamStitcher(configuration: region); _ = probe.ingest(analysis); return probe
-        }
+        diagnostics.startupWaitingState = "waitingForTarget"
         diagnostics.lastStage = "arming"
         if replaced { diagnostics.provisionalReplacements += 1 }
         return .init(status: .started, strips: [], isArming: true, replacedProvisionalStart: replaced)
     }
 
-    private func stableSceneReplacement(_ analysis: GrayFrame, allowed: Bool,
+    /// The additional scene is untrusted and never appears in the manifest.
+    /// Compare every stable sample against this fixed anchor, not the previous
+    /// sample, so small changes cannot accumulate into a drifting scene.
+    private func stableSceneReplacement(_ analysis: GrayFrame,
                                         makeImage: () throws -> CGImage) throws -> CaptureFrameResult? {
-        guard allowed else { armingRejections = 0; rejectedSceneAnalysis = nil; return nil }
-        if let previous = rejectedSceneAnalysis, previous.width == analysis.width, previous.height == analysis.height,
-           previous.pixels.elementsEqual(analysis.pixels) {
+        if let previous = rejectedSceneAnalysis, locallyStable(previous, analysis) {
             armingRejections = min(3, armingRejections + 1)
-        } else {
-            rejectedSceneAnalysis = analysis; armingRejections = 1
+            diagnostics.stableCandidateFrameCount = armingRejections
+            if armingRejections >= 3 {
+                let result = try arm(analysis, replaced: true, makeImage: makeImage)
+                diagnostics.startupRecoveryMethod = "stableSceneReplacement"
+                return result
+            }
+            return nil
         }
-        guard armingRejections >= 3 else { return nil }
-        return try arm(analysis, replaced: true, makeImage: makeImage)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Longlet-Recovery-\(UUID().uuidString).png")
+        do {
+            try autoreleasepool {
+                let image = try measure(.frameRendering, makeImage)
+                try measure(.provisionalWrite) { try CaptureSessionRepository.writeImage(image, to: url, format: .png) }
+            }
+        } catch {
+            try? FileManager.default.removeItem(at: url)
+            throw error
+        }
+        clearRejectedScene()
+        rejectedSceneAnalysis = analysis; rejectedSceneURL = url; armingRejections = 1
+        diagnostics.stableCandidateFrameCount = 1
+        return nil
+    }
+
+    private func locallyStable(_ reference: GrayFrame, _ current: GrayFrame) -> Bool {
+        guard reference.width == current.width, reference.height == current.height else { return false }
+        if reference.pixels.elementsEqual(current.pixels) { return true }
+        // At most 0.25% changed pixels, mean absolute error <= 0.25 gray levels,
+        // all changes inside one <= 10%-wide by <= 10%-high patch. A status
+        // corner may blink; distributed noise, scrolling and full-page fades
+        // cannot establish a replacement. This never authorizes a long join.
+        let limit = max(1, reference.pixels.count / 400)
+        var count = 0, total = 0
+        var minX = reference.width, minY = reference.height, maxX = 0, maxY = 0
+        for index in reference.pixels.indices {
+            let difference = abs(Int(reference.pixels[index]) - Int(current.pixels[index]))
+            guard difference != 0 else { continue }
+            count += 1; total += difference
+            if count > limit || total > reference.pixels.count / 4 { return false }
+            let x = index % reference.width, y = index / reference.width
+            minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
+        }
+        return maxX - minX + 1 <= max(1, reference.width / 10)
+            && maxY - minY + 1 <= max(1, reference.height / 10)
+    }
+
+    private func clearRejectedScene() {
+        if let rejectedSceneURL { try? FileManager.default.removeItem(at: rejectedSceneURL) }
+        rejectedSceneURL = nil; rejectedSceneAnalysis = nil; armingRejections = 0
+        diagnostics.stableCandidateFrameCount = 0
+    }
+
+    private struct StartAttempt {
+        var verified: VerifiedStart? = nil
+        var status: StitchDecision.Status = .rejected
+        var regionRejected = false
+        var foregroundRejected = false
+    }
+
+    /// One validation gate for BOTH provisional references. Failed region and
+    /// foreground checks return evidence, never bypass the startup recovery path.
+    private func evaluateStart(reference: GrayFrame, current: GrayFrame) -> StartAttempt {
+        guard automaticallyFindRegion else {
+            var replay = StreamStitcher(configuration: configuration)
+            guard replay.ingest(reference).status == .started else { return .init() }
+            let decision = replay.ingest(current)
+            recordForeground(replay.lastForegroundRegistration, status: decision.status)
+            return .init(verified: decision.status == .advanced
+                ? .init(stitcher: replay, decision: decision, configuration: configuration,
+                        source: "manual", fixedBand: nil) : nil, status: decision.status)
+        }
+        let foreground = measure(.foregroundRegistration) {
+            ForegroundMotionRegistration.analyze(reference: reference, current: current, configuration: configuration)
+        }
+        recordForeground(foreground, status: .rejected)
+        switch foreground.status {
+        case .matched:
+            diagnostics.regionAttempts += 1
+            guard let displacement = foreground.displacement, let insets = foreground.matchingInsets,
+                  let verified = verifyStart(reference: reference, current, displacement: displacement,
+                                             preferredInsets: insets) else { return .init(regionRejected: true) }
+            return .init(verified: verified, status: .advanced)
+        case .rejected: return .init(foregroundRejected: true)
+        case .unchanged: return .init(status: .unchanged)
+        case .notLayered: break
+        }
+        let windows = [(reference.height / 5, reference.height / 5),
+                       (reference.height / 8, reference.height / 8),
+                       (reference.height / 10, reference.height * 2 / 5),
+                       (reference.height / 10, reference.height / 2),
+                       (reference.height / 3, reference.height / 3)]
+        var hypotheses: [StitchDecision] = []
+        var checkedOffsets: Set<Int> = []
+        var verifiedOffsets: [Int: VerifiedStart] = [:]
+        var accepted: [VerifiedStart] = []
+        for (top, bottom) in windows {
+            var region = configuration; region.topInset = top; region.bottomInset = bottom
+            var probe = StreamStitcher(configuration: region); _ = probe.ingest(reference)
+            let hypothesis = probe.ingest(current); hypotheses.append(hypothesis)
+            guard hypothesis.status == .advanced else { continue }
+            if checkedOffsets.insert(hypothesis.contentOffset).inserted {
+                if checkedOffsets.count == 1 { diagnostics.regionAttempts += 1 }
+                if let verified = verifyStart(reference: reference, current, displacement: hypothesis.contentOffset) {
+                    verifiedOffsets[hypothesis.contentOffset] = verified
+                }
+            }
+            if let verified = verifiedOffsets[hypothesis.contentOffset] { accepted.append(verified) }
+            if Set(accepted.map { $0.decision.contentOffset }).count > 1 { return .init(regionRejected: true) }
+            if accepted.count >= 2 { break }
+        }
+        if let verified = accepted.first { return .init(verified: verified, status: .advanced) }
+        if !hypotheses.isEmpty, hypotheses.allSatisfy({ $0.status == .unchanged }) { return .init(status: .unchanged) }
+        return .init(regionRejected: !checkedOffsets.isEmpty)
+    }
+
+    private func recordForeground(_ foreground: ForegroundMotionRegistration.Result?, status: StitchDecision.Status) {
+        diagnostics.foregroundStatus = foreground?.status.rawValue ?? (status == .unchanged ? "unchanged" : nil)
+        diagnostics.foregroundCandidateCount = foreground?.candidateCount ?? 0
+        diagnostics.foregroundSupportCount = foreground?.supportCount ?? 0
     }
 
     private struct VerifiedStart {
@@ -298,9 +358,8 @@ final class CaptureFramePipeline {
         let fixedBand: (top: Int, bottom: Int)?
     }
 
-    private func verifyStart(_ analysis: GrayFrame, displacement: Int,
+    private func verifyStart(reference candidateAnalysis: GrayFrame, _ analysis: GrayFrame, displacement: Int,
                              preferredInsets: FixedRegionDetector.Insets? = nil) -> VerifiedStart? {
-        guard let candidateAnalysis else { return nil }
         let candidates: [FixedRegionDetector.Insets]
         let source: String
         let band: (top: Int, bottom: Int)?
@@ -340,10 +399,12 @@ final class CaptureFramePipeline {
         return nil
     }
 
-    private func loadCandidate() -> CGImage? {
+    private func loadCandidate() -> CGImage? { loadImage(at: candidateURL) }
+
+    private func loadImage(at url: URL?) -> CGImage? {
         measure(.provisionalRead) {
-            guard let candidateURL,
-                  let source = CGImageSourceCreateWithURL(candidateURL as CFURL, nil) else {
+            guard let url,
+                  let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
                 diagnostics.lastStage = "provisionalRead"; return nil
             }
             return CGImageSourceCreateImageAtIndex(source, 0,

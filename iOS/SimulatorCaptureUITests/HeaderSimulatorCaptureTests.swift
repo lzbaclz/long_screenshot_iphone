@@ -46,8 +46,36 @@ final class HeaderSimulatorCaptureTests: XCTestCase {
                    + Array(repeating: 1, count: 10) + Array(repeating: -1, count: 12))
     }
 
-    private func verify(route: [Int], initiallyVisible: Bool = false) throws {
+    func testUnrelatedAppStartThenUpwardScrollPreservesTargetBeginning() throws {
+        try verify(route: Array(repeating: -1, count: 10), unrelatedAppStart: true)
+    }
+
+    func testUnrelatedAppStartThenDownwardScrollPreservesTargetBeginning() throws {
+        try verify(route: Array(repeating: 1, count: 10), initiallyVisible: true, unrelatedAppStart: true)
+    }
+
+    func testUnrelatedAppStartThenReversalKeepsNaturalOrder() throws {
+        try verify(route: Array(repeating: -1, count: 5)
+                   + Array(repeating: 1, count: 10) + Array(repeating: -1, count: 12),
+                   unrelatedAppStart: true)
+    }
+
+    private func verify(route: [Int], initiallyVisible: Bool = false, unrelatedAppStart: Bool = false) throws {
         continueAfterFailure = false
+        var startupImage: CGImage?
+        if unrelatedAppStart {
+            // Only generated demo content from this dedicated simulator is
+            // captured. This exercises real app screenshots and switching,
+            // but still injects screenshots rather than using ReplayKit.
+            let host = XCUIApplication(bundleIdentifier: "dev.lzbaclz.longscreenshot")
+            host.launchArguments = ["--demo", "--uitesting", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+            host.launch()
+            XCTAssertTrue(host.descendants(matching: .any)["capture.simulatorNotice"].firstMatch
+                .waitForExistence(timeout: 15))
+            startupImage = try XCTUnwrap(XCUIScreen.main.screenshot().image.cgImage)
+            attach(image: try XCTUnwrap(startupImage), name: "unrelated-Longlet-startup-screen")
+            host.terminate()
+        }
         let fixture = XCUIApplication(bundleIdentifier: "dev.lzbaclz.longscreenshot.fixtures")
         // IDs exist only in UIKit metadata; the matcher sees ordinary message
         // pixels, not artificial numbered labels that could make alignment easy.
@@ -68,6 +96,15 @@ final class HeaderSimulatorCaptureTests: XCTestCase {
         let context = CIContext(options: [.cacheIntermediates: false])
         var poses: [Pose] = []
         var frameResults: [[String: Any]] = []
+        if let startupImage {
+            let gray = try CaptureFrameConversion.grayFrame(CIImage(cgImage: startupImage), context: context,
+                                                           width: 144, height: startupImage.height)
+            let result = try pipeline.ingest(gray) { startupImage }
+            XCTAssertTrue(result.isArming)
+            XCTAssertTrue(result.strips.isEmpty)
+            manifest.provisionalFrame = pipeline.provisionalFrame
+        }
+        startupImage = nil
 
         func ingest() throws {
             let json = try XCTUnwrap(metadata.value as? String)
@@ -156,6 +193,11 @@ final class HeaderSimulatorCaptureTests: XCTestCase {
         attach(data: Data(first.metadata.utf8), name: "UIKit-layout-oracle.json", type: "public.json")
 
         XCTAssertTrue(pipeline.hasStarted, "Transient header UI must not prevent real message motion from starting capture")
+        if unrelatedAppStart {
+            XCTAssertEqual(pipeline.diagnostics.provisionalReplacements, 1,
+                           "Startup must move from the unrelated app to the target exactly once")
+            XCTAssertGreaterThan(pipeline.diagnostics.acceptedFrames, 0)
+        }
         let minimum = try XCTUnwrap(poses.map { $0.layout.contentOffset.y }.min())
         let maximum = try XCTUnwrap(poses.map { $0.layout.contentOffset.y }.max())
         let scale = CGFloat(first.image.width) / first.layout.viewport.width

@@ -136,6 +136,7 @@ struct CaptureDetailView: View {
                 Text(session.localizedNoticeText ?? notice)
                     .font(.caption)
                     .foregroundStyle(ScrollTheme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("detail.recoveredNotice")
             }
             if session.leadingEdgeStripID != nil || session.trailingEdgeStripID != nil {
@@ -145,46 +146,65 @@ struct CaptureDetailView: View {
             }
             if let diagnostics = session.diagnostics {
                 DisclosureGroup("捕捉详情") {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(String(format: L10n.text("停止阶段：%@"), L10n.text(diagnostics.stageLabel)))
-                        Text(String(format: L10n.text("结束类型：%@"), L10n.text(diagnostics.terminationLabel)))
-                        Text(String(format: L10n.text("已处理 %lld 帧 · 已衔接 %lld 帧"),
-                                    Int64(diagnostics.observedFrames), Int64(diagnostics.acceptedFrames)))
-                        Text(String(format: L10n.text("未衔接 %lld 帧 · 恢复 %lld 次"),
-                                    Int64(diagnostics.rejectedFrames), Int64(diagnostics.recoveredGaps)))
-                        Text(String(format: L10n.text("单帧最长处理 %.0f 毫秒"), diagnostics.maximumProcessingMilliseconds))
-                        Text(String(format: L10n.text("匹配方式：%@"), L10n.text(diagnostics.matchingRegionSourceLabel)))
-                        if let top = diagnostics.matchingTopInset, let bottom = diagnostics.matchingBottomInset {
-                            Text(String(format: L10n.text("已采用匹配区域：顶部 %lld · 底部 %lld 原图像素"), Int64(top), Int64(bottom)))
-                        } else {
-                            Text("已采用匹配区域：未记录")
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(String(format: L10n.text("停止阶段：%@"), L10n.text(diagnostics.stageLabel)))
+                            Text(String(format: L10n.text("结束类型：%@"), L10n.text(diagnostics.terminationLabel)))
+                            Text(String(format: L10n.text("已处理 %lld 帧 · 已衔接 %lld 帧"),
+                                        Int64(diagnostics.observedFrames), Int64(diagnostics.acceptedFrames)))
+                            Text(String(format: L10n.text("未衔接 %lld 帧 · 恢复 %lld 次"),
+                                        Int64(diagnostics.rejectedFrames), Int64(diagnostics.recoveredGaps)))
+                            if let received = diagnostics.receivedVideoSamples {
+                                Text(String(format: L10n.text("接收视频样本 %lld 个 · 跳过 %lld 个"),
+                                            Int64(received), Int64(diagnostics.skippedSamples)))
+                            } else {
+                                Text(String(format: L10n.text("接收视频样本：未记录 · 跳过 %lld 个"), Int64(diagnostics.skippedSamples)))
+                            }
+                            Text(String(format: L10n.text("起点替换 %lld 次 · 起步方式：%@"),
+                                        Int64(diagnostics.provisionalReplacements), L10n.text(diagnostics.startupRecoveryLabel)))
+                            Text(String(format: L10n.text("起步状态：%@"), L10n.text(diagnostics.startupWaitingLabel)))
+                            if let seconds = diagnostics.startupWaitingSeconds {
+                                Text(String(format: L10n.text("确认连续滚动前等待 %.1f 秒（不含系统暂停）"), seconds))
+                            }
+                            if let stable = diagnostics.stableCandidateFrameCount {
+                                Text(String(format: L10n.text("当前起点连续稳定 %lld 帧"), Int64(stable)))
+                            }
+                            Text(String(format: L10n.text("单帧最长处理 %.0f 毫秒"), diagnostics.maximumProcessingMilliseconds))
+                            Text(String(format: L10n.text("匹配方式：%@"), L10n.text(diagnostics.matchingRegionSourceLabel)))
+                            if let top = diagnostics.matchingTopInset, let bottom = diagnostics.matchingBottomInset {
+                                Text(String(format: L10n.text("已采用匹配区域：顶部 %lld · 底部 %lld 原图像素"), Int64(top), Int64(bottom)))
+                            } else {
+                                Text("已采用匹配区域：未记录")
+                            }
+                            if let height = diagnostics.matchingFrameHeight {
+                                Text(String(format: L10n.text("匹配帧高度：%lld 原图像素"), Int64(height)))
+                            }
+                            if diagnostics.fixedBandIsApplicable == false {
+                                Text("固定结构保护带：不适用")
+                            } else if let top = diagnostics.fixedBandTop, let bottom = diagnostics.fixedBandBottom {
+                                Text(String(format: L10n.text("固定结构保护带：顶部 %lld · 底部 %lld 原图像素"), Int64(top), Int64(bottom)))
+                            } else {
+                                Text("固定结构保护带：未记录")
+                            }
+                            if let pauseCount = diagnostics.pauseCount, pauseCount > 0 {
+                                Text(String(format: L10n.text("系统暂停 %lld 次 · 已恢复衔接 %lld 次"),
+                                            Int64(pauseCount), Int64(diagnostics.recoveredResumeCount ?? 0)))
+                            }
+                            if let timings = diagnostics.stageTimings,
+                               let slowest = CaptureProcessingStage.allCases.filter({ timings[$0] != nil })
+                                .max(by: { (timings[$0]?.maximumMilliseconds ?? 0) < (timings[$1]?.maximumMilliseconds ?? 0) }),
+                               let timing = timings[slowest] {
+                                Text(String(format: L10n.text("阶段峰值：%@ · %.0f 毫秒"),
+                                            L10n.text(slowest.displayLabel), timing.maximumMilliseconds))
+                            }
                         }
-                        if let height = diagnostics.matchingFrameHeight {
-                            Text(String(format: L10n.text("匹配帧高度：%lld 原图像素"), Int64(height)))
-                        }
-                        if diagnostics.fixedBandIsApplicable == false {
-                            Text("固定结构保护带：不适用")
-                        } else if let top = diagnostics.fixedBandTop, let bottom = diagnostics.fixedBandBottom {
-                            Text(String(format: L10n.text("固定结构保护带：顶部 %lld · 底部 %lld 原图像素"), Int64(top), Int64(bottom)))
-                        } else {
-                            Text("固定结构保护带：未记录")
-                        }
-                        if let pauseCount = diagnostics.pauseCount, pauseCount > 0 {
-                            Text(String(format: L10n.text("系统暂停 %lld 次 · 已恢复衔接 %lld 次"),
-                                        Int64(pauseCount), Int64(diagnostics.recoveredResumeCount ?? 0)))
-                        }
-                        if let timings = diagnostics.stageTimings,
-                           let slowest = CaptureProcessingStage.allCases.filter({ timings[$0] != nil })
-                            .max(by: { (timings[$0]?.maximumMilliseconds ?? 0) < (timings[$1]?.maximumMilliseconds ?? 0) }),
-                           let timing = timings[slowest] {
-                            Text(String(format: L10n.text("阶段峰值：%@ · %.0f 毫秒"),
-                                        L10n.text(slowest.displayLabel), timing.maximumMilliseconds))
-                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 6)
+                        .font(.caption)
+                        .foregroundStyle(ScrollTheme.secondary)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 6)
-                    .font(.caption)
-                    .foregroundStyle(ScrollTheme.secondary)
+                    .frame(maxHeight: 240)
+                    .accessibilityIdentifier("detail.diagnostics.scroll")
                 }
                 .font(.caption)
                 .accessibilityIdentifier("detail.diagnostics")
@@ -209,6 +229,7 @@ struct CaptureDetailView: View {
                     ? "这是生成的示例图片，用来体验编辑和导出，并非真实跨应用捕捉。"
                     : "这是本机生成的失败示例，用来检查界面，并非真实跨应用捕捉。"))
                     .font(.caption2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .foregroundStyle(ScrollTheme.secondary)
             }
         }

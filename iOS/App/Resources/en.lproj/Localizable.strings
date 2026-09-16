@@ -293,7 +293,7 @@
 "首次保存连续画面" = "Saving the first continuous views";
 "系统暂停捕捉" = "Capture paused by the system";
 "系统中断捕捉" = "Capture interrupted by the system";
-"系统结束捕捉" = "Capture ended by the system";
+"系统结束捕捉" = "Ended through system controls";
 "画面处理或保存失败" = "Frame processing or saving failed";
 "屏幕方向或尺寸改变" = "Screen orientation or size changed";
 "未写入可用画面。" = "No usable frames were written.";
@@ -310,7 +310,7 @@
 "保存捕捉记录" = "Saving capture details";
 "系统暂停 %lld 次 · 已恢复衔接 %lld 次" = "System pauses: %lld · Successfully resumed: %lld";
 "阶段峰值：%@ · %.0f 毫秒" = "Slowest stage peak: %@ · %.0f ms";
-"捕捉已由系统结束。" = "Capture was ended by the system.";
+"捕捉已由系统结束。" = "Broadcast ended.";
 "恢复后的画面无法可靠衔接，已保留暂停前的画面。请重新开始下一段。" = "The resumed view could not be aligned reliably. Views saved before the pause have been kept. Start a new capture for the next section.";
 
 /* Accepted matching region diagnostics; distances use original image pixels. */
@@ -350,3 +350,26 @@
 "本次未启用接缝选址" = "Seam placement was disabled for this capture";
 "来源证据不足，保留默认接缝" = "Insufficient source evidence; kept the default seam";
 "关闭" = "Close";
+
+/* Startup recovery and bounded capture diagnostics. */
+"等待目标内容" = "Waiting for target content";
+"从最初画面开始衔接" = "Joined from the initial view";
+"切换页面后通过滚动重新找到起点" = "Found a new start through overlapping scroll frames";
+"切换页面后更新了静止起点" = "Updated the starting view after the page changed";
+"尚未确认连续滚动" = "Continuous scrolling not yet confirmed";
+"已确认连续滚动" = "Continuous scrolling confirmed";
+"系统入口结束（也可能由你手动停止）" = "Ended through system controls (may include your manual stop)";
+"请进入想保留的页面，缓慢向上或向下滑动。确认前后画面能够衔接后才会形成长图。" = "Open the page you want to keep and scroll slowly up or down. A long image starts once overlapping views are confirmed.";
+"还没有确认可衔接的滚动，当前尚未形成长图。请进入目标页面缓慢滚动，让前后画面保留重叠。" = "No continuous scroll has been confirmed yet, so there is no long image yet. Open your target page and scroll slowly, keeping overlap between views.";
+"系统已暂停提供屏幕画面。恢复后会继续确认画面衔接；你也可以结束这次捕捉。" = "The system has paused screen capture. Overlap checks will continue when it resumes, or you can end this capture.";
+"请回到暂停前的位置，让新画面与已保存的内容保留重叠。确认衔接前不会增加长图内容。" = "Return to where you paused so the new view overlaps the saved content. The long image will grow only after that overlap is confirmed.";
+"停止捕捉" = "Stop capture";
+"接收视频样本 %lld 个 · 跳过 %lld 个" = "Received %lld video samples · skipped %lld";
+"接收视频样本：未记录 · 跳过 %lld 个" = "Received video samples: not recorded · skipped %lld";
+"起点替换 %lld 次 · 起步方式：%@" = "Starting view replacements: %lld · start method: %@";
+"起步状态：%@" = "Start status: %@";
+"确认连续滚动前等待 %.1f 秒（不含系统暂停）" = "Wait before confirmed scrolling: %.1f s (excluding system pauses)";
+"当前起点连续稳定 %lld 帧" = "Current starting view stable for %lld consecutive frames";
+"广播已结束。" = "Broadcast ended.";
+"停止后，查看结果" = "Stop and check the result";
+"点按屏幕顶部的系统捕捉指示结束，或返回续页点按停止。确认连续滚动后可编辑和保存长图；未确认时可能仅保留单屏，请查看提示后重新捕捉。" = "Tap the system capture indicator at the top of the screen to stop, or return to Longlet and tap Stop. Once continuous scrolling is confirmed, you can edit and save the long image. Otherwise, only a single screen may be kept; check the notice and try again.";

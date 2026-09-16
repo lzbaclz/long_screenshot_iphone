@@ -113,6 +113,24 @@ final class CaptureLibrary: ObservableObject {
 }
 
 extension CaptureDiagnostics {
+    var startupRecoveryLabel: String {
+        switch startupRecoveryMethod {
+        case "initialOverlap": "从最初画面开始衔接"
+        case "adjacentSceneOverlap": "切换页面后通过滚动重新找到起点"
+        case "stableSceneReplacement": "切换页面后更新了静止起点"
+        default: "未记录"
+        }
+    }
+
+    var startupWaitingLabel: String {
+        switch startupWaitingState {
+        case "waitingForFrames": "等待屏幕画面"
+        case "waitingForTarget": "尚未确认连续滚动"
+        case "confirmed": "已确认连续滚动"
+        default: "未记录"
+        }
+    }
+
     var matchingRegionSourceLabel: String {
         switch matchingRegionSource {
         case "wholePage": "整页滚动"
@@ -133,7 +151,7 @@ extension CaptureDiagnostics {
     var stageLabel: String {
         switch lastStage {
         case "starting": "等待屏幕画面"
-        case "arming": "等待目标页面稳定"
+        case "arming": "等待目标内容"
         case "region": "确认滚动区域"
         case "alignment": "尝试衔接画面"
         case "foreground": "识别滚动消息"
@@ -157,7 +175,7 @@ extension CaptureDiagnostics {
         case "manual": "手动停止"
         case "systemPause", "paused": "系统暂停捕捉"
         case "systemInterruption", "interrupted": "系统中断捕捉"
-        case "systemEnded", "systemStop": "系统结束捕捉"
+        case "systemEnded", "systemStop", "systemEntryStop": "系统入口结束（也可能由你手动停止）"
         case "resumeOverlap": "恢复后的画面未能衔接"
         case "processingError": "画面处理或保存失败"
         case "geometry": "屏幕方向或尺寸改变"
@@ -186,6 +204,29 @@ extension CaptureProcessingStage {
 }
 
 extension CaptureSessionManifest {
+    /// A persisted candidate alone is not evidence of a continuous image.
+    var isWaitingForTarget: Bool { status == .capturing && !hasImage }
+    var activeCaptureTitle: String {
+        if diagnostics?.lifecycleState == "paused" { return "等待系统恢复捕捉" }
+        if diagnostics?.lifecycleState == "awaitingOverlap" { return "恢复后重新确认画面衔接" }
+        return isWaitingForTarget ? "等待目标内容" : "正在为你保留内容"
+    }
+    var activeCaptureMessage: String {
+        if diagnostics?.lifecycleState == "paused" {
+            return "系统已暂停提供屏幕画面。恢复后会继续确认画面衔接；你也可以结束这次捕捉。"
+        }
+        if diagnostics?.lifecycleState == "awaitingOverlap" {
+            return "请回到暂停前的位置，让新画面与已保存的内容保留重叠。确认衔接前不会增加长图内容。"
+        }
+        if isWaitingForTarget {
+            if (diagnostics?.startupWaitingSeconds ?? 0) >= 8 {
+                return "还没有确认可衔接的滚动，当前尚未形成长图。请进入目标页面缓慢滚动，让前后画面保留重叠。"
+            }
+            return "请进入想保留的页面，缓慢向上或向下滑动。确认前后画面能够衔接后才会形成长图。"
+        }
+        return "返回目标应用上下滑动，前后画面保留重叠。结束时点按系统捕捉指示，或在这里停止。"
+    }
+
     var isFailedCapture: Bool { status != .capturing && !hasImage }
     var isSavedPartialCapture: Bool {
         hasImage && status != .capturing && (status != .completed || isSingleFrameFallback)
@@ -199,7 +240,7 @@ extension CaptureSessionManifest {
         if isFailedCapture { return "未捕捉到可用画面" }
         if status != .capturing && isSingleFrameFallback { return "仅保留单屏" }
         return switch status {
-        case .capturing: "捕捉中"
+        case .capturing: isWaitingForTarget ? "等待目标内容" : "捕捉中"
         case .completed: startWarning == nil ? "已完成" : "请检查开头"
         case .partial: "部分内容已保留"
         case .interrupted: "待恢复"

@@ -219,6 +219,59 @@ final class ScrollCaptureUITests: XCTestCase {
         }
     }
 
+    func testStartupWaitingAndPausedGuidanceInBothLanguages() {
+        for language in ["zh-Hans", "en"] {
+            for paused in [false, true] {
+                app.terminate()
+                app.launchArguments = ["--demo", "--uitesting", "--demo-startup-waiting",
+                                       "-AppleLanguages", "(\(language))", "-AppleLocale", language == "en" ? "en_US" : "zh_CN"]
+                if paused { app.launchArguments.append("--demo-startup-paused") }
+                app.launch()
+                let title = element("capture.activeTitle")
+                for _ in 0..<3 where !title.isHittable { app.swipeUp() }
+                XCTAssertTrue(title.waitForExistence(timeout: 5))
+                XCTAssertTrue(title.label.contains(paused
+                    ? (language == "en" ? "Waiting for the system to resume capture" : "等待系统恢复捕捉")
+                    : (language == "en" ? "Waiting for target content" : "等待目标内容")))
+                let message = element("capture.activeMessage")
+                XCTAssertTrue(message.label.contains(paused
+                    ? (language == "en" ? "paused screen capture" : "暂停提供屏幕画面")
+                    : (language == "en" ? "no long image yet" : "当前尚未形成长图")))
+                XCTAssertEqual(app.buttons["capture.stop"].label, language == "en" ? "Stop capture" : "停止捕捉")
+                attachScreenshot("startup-\(paused ? "paused" : "waiting")-\(language)")
+            }
+        }
+    }
+
+    func testStartupDiagnosticsAreTranslatedScrollableAndKeepExportsReachable() {
+        for language in ["zh-Hans", "en"] {
+            app.terminate()
+            app.launchArguments = ["--demo", "--uitesting", "--demo-startup-diagnostics",
+                                   "-AppleLanguages", "(\(language))", "-AppleLocale", language == "en" ? "en_US" : "zh_CN"]
+            app.launch()
+            openFirstCompletedCapture()
+            XCTAssertTrue(element("detail.preview").waitForExistence(timeout: 10))
+            XCTAssertTrue(element("detail.recoveredNotice").label.contains(language == "en" ? "Broadcast ended." : "广播已结束。"))
+            element("detail.diagnostics").tap()
+            // SwiftUI propagates the DisclosureGroup identifier to its scroll container.
+            let scroll = app.scrollViews["detail.diagnostics"]
+            XCTAssertTrue(scroll.waitForExistence(timeout: 5))
+            let received = app.staticTexts[language == "en" ? "Received 72 video samples · skipped 52" : "接收视频样本 72 个 · 跳过 52 个"]
+            XCTAssertTrue(received.exists)
+            attachScreenshot("startup-diagnostics-top-\(language)")
+            let stable = app.staticTexts[language == "en" ? "Current starting view stable for 2 consecutive frames" : "当前起点连续稳定 2 帧"]
+            for _ in 0..<3 where !stable.isHittable { scroll.swipeUp() }
+            XCTAssertTrue(stable.isHittable)
+            let pause = app.staticTexts[language == "en" ? "System pauses: 1 · Successfully resumed: 1" : "系统暂停 1 次 · 已恢复衔接 1 次"]
+            for _ in 0..<4 where !pause.isHittable { scroll.swipeUp() }
+            XCTAssertTrue(pause.isHittable)
+            XCTAssertGreaterThan(element("detail.preview").frame.height, 40)
+            XCTAssertTrue(app.buttons["detail.savePhotos"].isHittable)
+            XCTAssertTrue(app.buttons["detail.share"].isHittable)
+            attachScreenshot("startup-diagnostics-bottom-\(language)")
+        }
+    }
+
     private func element(_ identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
@@ -231,6 +284,8 @@ final class ScrollCaptureUITests: XCTestCase {
     }
 
     private func attachScreenshot(_ name: String) {
+        // Let the simulator finish compositing after disclosure/scroll animations.
+        Thread.sleep(forTimeInterval: 0.5)
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways

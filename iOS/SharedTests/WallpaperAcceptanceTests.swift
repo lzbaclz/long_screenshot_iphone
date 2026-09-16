@@ -58,9 +58,16 @@ final class WallpaperAcceptanceTests: XCTestCase {
         }
     }
 
-    private func assertMovingCapture(width: Int, height: Int, startsUpward: Bool) throws {
+    func testNativeWallpaperStartupSwitchImmediatelyScrollsBothDirections() throws {
+        for upward in [false, true] {
+            try autoreleasepool { try assertMovingCapture(width: 886, height: 1920, startsUpward: upward, startupScene: true) }
+        }
+    }
+
+    private func assertMovingCapture(width: Int, height: Int, startsUpward: Bool, startupScene: Bool = false) throws {
         let fixture = makeFixture(width: width, height: height)
-        let offsets = trajectory(bodyHeight: fixture.bodyHeight, startsUpward: startsUpward)
+        var offsets = trajectory(bodyHeight: fixture.bodyHeight, startsUpward: startsUpward)
+        if startupScene { offsets.remove(at: 1) } // No stationary repeat before the first scroll.
         let firstOffset = try XCTUnwrap(offsets.first)
         let minimum = try XCTUnwrap(offsets.min())
         let maximum = try XCTUnwrap(offsets.max())
@@ -83,6 +90,13 @@ final class WallpaperAcceptanceTests: XCTestCase {
         var manifest = try repository.createSession(configuration: .init())
         // Both insets are zero: all region selection goes through production automatic ROI.
         let pipeline = CaptureFramePipeline(configuration: .init(), repository: repository, sessionID: manifest.id)
+        if startupScene {
+            let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
+            let host = UIGraphicsImageRenderer(size: CGSize(width: width, height: height), format: format).image { context in
+                UIColor.darkGray.setFill(); context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            }.cgImage!
+            _ = try pipeline.ingest(analysis(host)) { host }
+        }
         var trace: [[String: Any]] = []
         for (index, offset) in offsets.enumerated() {
             try autoreleasepool {
@@ -104,6 +118,10 @@ final class WallpaperAcceptanceTests: XCTestCase {
             attachImage(movedFrame, name: "wallpaper-first-movement")
             XCTFail("Automatic capture never started for \(width)×\(height), upward=\(startsUpward)")
             throw FixtureFailure.captureDidNotStart
+        }
+        if startupScene {
+            XCTAssertEqual(pipeline.diagnostics.provisionalReplacements, 1)
+            XCTAssertEqual(pipeline.diagnostics.startupRecoveryMethod, "adjacentSceneOverlap")
         }
         manifest.finalizeCapture(reason: "已手动结束捕捉。", partial: false)
         try repository.saveManifest(manifest)

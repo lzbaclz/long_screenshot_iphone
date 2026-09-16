@@ -162,13 +162,15 @@ struct HomeView: View {
     private func activeCard(_ session: CaptureSessionManifest) -> some View {
         PaperCard {
             VStack(alignment: .leading, spacing: 12) {
-                Label(LocalizedStringKey(session.strips.isEmpty ? "准备捕捉，请切到目标应用" : "正在为你保留内容"), systemImage: "record.circle.fill")
+                Label(LocalizedStringKey(session.activeCaptureTitle), systemImage: "record.circle.fill")
+                    .accessibilityIdentifier("capture.activeTitle")
                     .font(.headline)
                     .foregroundStyle(ScrollTheme.teal)
-                Text("返回目标应用上下滑动，前后画面保留重叠。结束时点按系统捕捉指示，或在这里停止。")
+                Text(LocalizedStringKey(session.activeCaptureMessage))
+                    .accessibilityIdentifier("capture.activeMessage")
                     .font(.subheadline)
                     .foregroundStyle(ScrollTheme.secondary)
-                Button("停止并生成长图") { library.stopCapture() }
+                Button(LocalizedStringKey(session.isWaitingForTarget ? "停止捕捉" : "停止并生成长图")) { library.stopCapture() }
                     .buttonStyle(.borderedProminent)
                     .foregroundStyle(.white)
                     .accessibilityIdentifier("capture.stop")

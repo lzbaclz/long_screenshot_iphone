@@ -28,6 +28,8 @@ final class ScreenCaptureKit27FrameSink: NSObject, SCStreamOutput, @unchecked Se
     private var lifecycle = CaptureLifecyclePolicy(startedAt: ProcessInfo.processInfo.systemUptime)
     private var adapterTimings = CaptureStageTimings()
     private var maximumProcessingMilliseconds = 0.0
+    private var receivedVideoSamples = 0
+    private var startupWaitingSeconds = 0.0
     private var skippedSamples = 0
     private var lastFrameUptime = 0.0
     private var lastMotionActiveTime = 0.0
@@ -55,7 +57,9 @@ final class ScreenCaptureKit27FrameSink: NSObject, SCStreamOutput, @unchecked Se
                             of type: SCStreamOutputType) {
         dispatchPrecondition(condition: .onQueue(queue))
         guard type == .screen, outcome == nil else { return }
+        receivedVideoSamples += 1
         let now = ProcessInfo.processInfo.systemUptime
+        if pipeline?.hasStarted != true { startupWaitingSeconds = lifecycle.activeElapsed(at: now) }
         guard let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: false)
                 as? [[SCStreamFrameInfo: Any]],
               let values = attachments.first,
@@ -72,7 +76,7 @@ final class ScreenCaptureKit27FrameSink: NSObject, SCStreamOutput, @unchecked Se
             if stoppedFrameUptime == nil { stoppedFrameUptime = now }
             return
         case .blank, .suspended:
-            if lifecycle.pause(at: now, requiresOverlap: pipeline?.hasReference == true) {
+            if lifecycle.pause(at: now, requiresOverlap: pipeline?.hasStarted == true) {
                 continuity.accept(); imageContext.clearCaches()
                 refreshDiagnostics(stage: "paused"); persistLifecycleSnapshot()
             }
@@ -209,8 +213,8 @@ final class ScreenCaptureKit27FrameSink: NSObject, SCStreamOutput, @unchecked Se
         guard outcome == nil else { return }
         let now = ProcessInfo.processInfo.systemUptime
         if let stoppedFrameUptime, now - stoppedFrameUptime >= 2 {
-            manifest.diagnostics?.terminationCause = "systemStop"
-            _ = finishOnQueue(reason: "捕捉已由系统结束。", partial: false); return
+            manifest.diagnostics?.terminationCause = "systemEntryStop"
+            _ = finishOnQueue(reason: "广播已结束。", partial: false); return
         }
         if repository.hasStopRequest(id: sessionID) {
             manifest.diagnostics?.terminationCause = "manual"
@@ -244,7 +248,7 @@ final class ScreenCaptureKit27FrameSink: NSObject, SCStreamOutput, @unchecked Se
         _ = lifecycle.finish(at: ProcessInfo.processInfo.systemUptime)
         refreshDiagnostics()
         if manifest.diagnostics?.terminationCause == nil {
-            manifest.diagnostics?.terminationCause = reason == "已手动结束捕捉。" ? "manual" : partial ? "systemInterruption" : "systemStop"
+            manifest.diagnostics?.terminationCause = reason == "已手动结束捕捉。" ? "manual" : partial ? "systemInterruption" : "systemEntryStop"
         }
         refreshDiagnostics()
         timer?.cancel(); timer = nil
@@ -286,6 +290,13 @@ final class ScreenCaptureKit27FrameSink: NSObject, SCStreamOutput, @unchecked Se
         var stats = pipeline?.diagnostics ?? manifest.diagnostics ?? .init()
         stats.seams = manifest.diagnostics?.seams
         stats.stageTimings = .combined(pipeline: pipelineTimings, adapter: adapterTimings)
+        stats.receivedVideoSamples = receivedVideoSamples
+        if pipeline?.hasStarted != true, !lifecycle.isFinished {
+            startupWaitingSeconds = lifecycle.activeElapsed(at: ProcessInfo.processInfo.systemUptime)
+        }
+        stats.startupWaitingSeconds = startupWaitingSeconds
+        stats.startupWaitingState = pipeline?.hasStarted == true ? "confirmed"
+            : pipeline?.hasReference == true ? "waitingForTarget" : "waitingForFrames"
         stats.skippedSamples = skippedSamples; stats.maximumProcessingMilliseconds = maximumProcessingMilliseconds
         stats.lifecycleState = lifecycle.state.rawValue
         stats.pauseCount = lifecycle.pauseCount; stats.resumeCount = lifecycle.resumeCount

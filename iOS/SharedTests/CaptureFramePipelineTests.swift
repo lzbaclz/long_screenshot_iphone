@@ -239,7 +239,8 @@ final class CaptureFramePipelineTests: XCTestCase {
         for seed in UInt64(20_000)..<20_008 {
             let gray = try frame(scene(seed: seed), offset: 0)
             let result = try pipeline.ingest(gray) {
-                XCTFail("Changing unmatched scenes must not be rendered as new starting images")
+                // One temporary recovery image is allowed; it must not replace
+                // the published fallback or authorize a join without overlap.
                 return self.image(gray)
             }
             XCTAssertTrue(result.strips.isEmpty)
@@ -290,5 +291,283 @@ final class CaptureFramePipelineTests: XCTestCase {
             context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
         }
         return bytes
+    }
+}
+
+extension CaptureFramePipelineTests {
+    func testImmediateTargetScrollRecoversBothDirectionsWithExactExportAndNoHostPixels() throws {
+        for offsets in [[0, 12, 24, 36, 48, 60], [60, 48, 36, 24, 12, 0]] {
+            for stillCount in [1, 2] {
+                let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                defer { try? FileManager.default.removeItem(at: root) }
+                let repository = try CaptureSessionRepository(rootURL: root)
+                var session = try repository.createSession(configuration: .init())
+                let pipeline = CaptureFramePipeline(configuration: .init(), repository: repository, sessionID: session.id)
+                let target = scene(seed: 91)
+                _ = try feed(pipeline, source: scene(seed: 4), offset: 0)
+                for _ in 0..<stillCount { _ = try feed(pipeline, source: target, offset: offsets[0]) }
+                for offset in offsets.dropFirst() {
+                    let result = try feed(pipeline, source: target, offset: offset)
+                    XCTAssertEqual(result.status, .advanced)
+                    XCTAssertEqual(result.replacedProvisionalStart, offset == offsets[1])
+                    session.provisionalFrame = pipeline.provisionalFrame
+                    try repository.commit(result, maximumBodyHeight: 1_000, to: &session)
+                    pipeline.confirmCommit()
+                }
+                XCTAssertEqual(pipeline.diagnostics.acceptedFrames, 5)
+                XCTAssertEqual(pipeline.diagnostics.provisionalReplacements, 1)
+                XCTAssertEqual(pipeline.diagnostics.startupRecoveryMethod, "adjacentSceneOverlap")
+                session.finalizeCapture(reason: "已手动结束捕捉。", partial: false)
+                try repository.saveManifest(session)
+                let exported = try CaptureImageRenderer(repository: repository).export(sessionID: session.id)
+                let actual = try XCTUnwrap(UIImage(contentsOfFile: exported.path)?.cgImage)
+                XCTAssertEqual(pixels(actual), Array(target.prefix(180 * 48)))
+            }
+        }
+    }
+
+    func testLocalCornerChangesPermitStableReplacementWithoutCreatingALongImage() throws {
+        let pipeline = CaptureFramePipeline(configuration: .init())
+        _ = try feed(pipeline, source: scene(seed: 4), offset: 0)
+        let target = scene(seed: 91)
+        for index in 1...3 {
+            var bytes = Array(target.prefix(120 * 48)); bytes[0] = UInt8(index)
+            let gray = try GrayFrame(width: 48, height: 120, pixels: bytes)
+            _ = try pipeline.ingest(gray) { self.image(gray) }
+        }
+        XCTAssertFalse(pipeline.hasStarted)
+        XCTAssertEqual(pipeline.diagnostics.provisionalReplacements, 1)
+        XCTAssertEqual(pipeline.diagnostics.startupRecoveryMethod, "stableSceneReplacement")
+        let result = try feed(pipeline, source: target, offset: 12)
+        XCTAssertEqual(result.status, .advanced)
+        XCTAssertEqual(result.strips.last?.image.height, 12)
+    }
+
+    func testDistributedMinorChangesCannotEstablishStableScene() throws {
+        let pipeline = CaptureFramePipeline(configuration: .init())
+        let host = scene(seed: 4), target = scene(seed: 91)
+        _ = try feed(pipeline, source: host, offset: 0)
+        for index in 1...8 {
+            var bytes = Array(target.prefix(120 * 48))
+            bytes[0] = UInt8(index); bytes[119 * 48 + 47] = UInt8(index)
+            let gray = try GrayFrame(width: 48, height: 120, pixels: bytes)
+            _ = try pipeline.ingest(gray) { self.image(gray) }
+        }
+        XCTAssertFalse(pipeline.hasStarted)
+        XCTAssertEqual(pipeline.diagnostics.provisionalReplacements, 0)
+        XCTAssertEqual(pixels(try XCTUnwrap(pipeline.takeSingleFrameFallback())), Array(host.prefix(120 * 48)))
+    }
+
+    func testOriginalCandidateWinsWhenItReturnsBeforeNewSceneIsConfirmed() throws {
+        let pipeline = CaptureFramePipeline(configuration: .init())
+        let original = scene(seed: 4)
+        _ = try feed(pipeline, source: original, offset: 0)
+        _ = try feed(pipeline, source: scene(seed: 91), offset: 0)
+        let result = try feed(pipeline, source: original, offset: 12)
+        XCTAssertEqual(result.status, .advanced)
+        XCTAssertFalse(result.replacedProvisionalStart)
+        XCTAssertEqual(pipeline.diagnostics.provisionalReplacements, 0)
+        XCTAssertEqual(result.strips.flatMap { pixels($0.image) }, Array(original.prefix(132 * 48)))
+    }
+
+    func testProvisionalOnlyPauseResumesImmediateScrollingWithNewOrigin() throws {
+        let pipeline = CaptureFramePipeline(configuration: .init())
+        var lifecycle = CaptureLifecyclePolicy()
+        _ = try feed(pipeline, source: scene(seed: 4), offset: 0)
+        XCTAssertTrue(pipeline.hasReference); XCTAssertFalse(pipeline.hasStarted)
+        lifecycle.pause(at: 1, requiresOverlap: pipeline.hasStarted)
+        lifecycle.resume(at: 2)
+        XCTAssertFalse(lifecycle.needsOverlapAfterResume)
+        for offset in [0, 12] {
+            let gray = try frame(scene(seed: 91), offset: offset)
+            _ = try pipeline.ingest(gray, allowProvisionalReplacement: !lifecycle.needsOverlapAfterResume) { self.image(gray) }
+        }
+        XCTAssertTrue(pipeline.hasStarted)
+        XCTAssertEqual(pipeline.diagnostics.provisionalReplacements, 1)
+    }
+
+    func testAfterFirstJoinUnrelatedAdjacentFramesCannotReplaceTrustedOrigin() throws {
+        let pipeline = CaptureFramePipeline(configuration: .init())
+        let original = scene(seed: 4), other = scene(seed: 91)
+        for offset in [0, 12] { _ = try feed(pipeline, source: original, offset: offset) }
+        for offset in [0, 12, 24, 36] {
+            let rejected = try feed(pipeline, source: other, offset: offset)
+            XCTAssertEqual(rejected.status, .rejected)
+            XCTAssertTrue(rejected.strips.isEmpty)
+        }
+        XCTAssertEqual(pipeline.diagnostics.provisionalReplacements, 0)
+        let recovered = try feed(pipeline, source: original, offset: 24)
+        XCTAssertEqual(pixels(try XCTUnwrap(recovered.strips.last).image), Array(original[(132 * 48)..<(144 * 48)]))
+    }
+
+    func testRecoveryCandidateRenderingFailurePreservesPublishedFallback() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let repository = try CaptureSessionRepository(rootURL: root)
+        let session = try repository.createSession(configuration: .init())
+        let pipeline = CaptureFramePipeline(configuration: .init(), repository: repository, sessionID: session.id)
+        let host = scene(seed: 4)
+        _ = try feed(pipeline, source: host, offset: 0)
+        let published = pipeline.provisionalFrame
+        let other = try frame(scene(seed: 91), offset: 0)
+        XCTAssertThrowsError(try pipeline.ingest(other) { throw CaptureStorageError.imageEncodingFailed })
+        XCTAssertEqual(try repository.loadSession(id: session.id).provisionalFrame, published)
+        XCTAssertEqual(pixels(try XCTUnwrap(pipeline.takeSingleFrameFallback())), Array(host.prefix(120 * 48)))
+    }
+
+    func testRecoveredFirstCommitFailureKeepsCompleteTargetFallback() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let repository = try CaptureSessionRepository(rootURL: root)
+        var session = try repository.createSession(configuration: .init())
+        let pipeline = CaptureFramePipeline(configuration: .init(), repository: repository, sessionID: session.id)
+        let target = scene(seed: 91)
+        _ = try feed(pipeline, source: scene(seed: 4), offset: 0)
+        _ = try feed(pipeline, source: target, offset: 0)
+        let result = try feed(pipeline, source: target, offset: 12)
+        XCTAssertTrue(result.replacedProvisionalStart)
+        let wrong = try GrayFrame(width: 49, height: 2, pixels: [UInt8](repeating: 0, count: 98))
+        let faulty = CaptureFrameResult(status: .advanced,
+            strips: result.strips + [.init(image: image(wrong), sourceTopPixel: 0)], isArming: false)
+        XCTAssertThrowsError(try repository.commit(faulty, maximumBodyHeight: 1_000, to: &session))
+        session = try repository.loadSession(id: session.id)
+        XCTAssertTrue(session.strips.isEmpty)
+        XCTAssertEqual(pixels(try XCTUnwrap(pipeline.takeSingleFrameFallback())), Array(target.prefix(120 * 48)))
+        XCTAssertTrue(try repository.preserveProvisionalFrame(to: &session))
+    }
+
+    func testManualRegionAndAutomaticCapsRecoverUpwardStartAndReversal() throws {
+        for manual in [false, true] {
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: root) }
+            let repository = try CaptureSessionRepository(rootURL: root)
+            var session = try repository.createSession(configuration: .init())
+            let config = AlignmentConfiguration(topInset: manual ? 17 : 0, bottomInset: manual ? 23 : 0)
+            let pipeline = CaptureFramePipeline(configuration: config, repository: repository, sessionID: session.id)
+            let host = try chromeFrame(scene(seed: 4), offset: 0, top: 17, bottom: 23)
+            _ = try pipeline.ingest(host) { self.image(host) }
+            let target = scene(seed: 91)
+            for offset in [60, 48, 24, 0, 36, 72] {
+                let gray = try chromeFrame(target, offset: offset, top: 17, bottom: 23)
+                let result = try pipeline.ingest(gray) { self.image(gray) }
+                if !result.strips.isEmpty {
+                    try repository.commit(result, maximumBodyHeight: 1_000, to: &session)
+                    pipeline.confirmCommit()
+                }
+            }
+            session.finalizeCapture(reason: "已手动结束捕捉。", partial: false)
+            try repository.saveManifest(session)
+            let url = try CaptureImageRenderer(repository: repository).export(sessionID: session.id)
+            let actual = try XCTUnwrap(UIImage(contentsOfFile: url.path)?.cgImage)
+            let chrome = scene(seed: 11_091)
+            let expected = manual ? Array(target.prefix(192 * 48))
+                : Array(chrome.prefix(17 * 48)) + Array(target.prefix(192 * 48)) + Array(chrome[(200 * 48)..<(223 * 48)])
+            XCTAssertEqual(pixels(actual), expected)
+            XCTAssertEqual(pipeline.diagnostics.provisionalReplacements, 1)
+        }
+    }
+
+    func testUnchangedTargetBodyKeepsEarliestFullScreenDespiteChromeChanges() throws {
+        let pipeline = CaptureFramePipeline(configuration: .init())
+        let target = scene(seed: 91)
+        let host = try chromeFrame(scene(seed: 4), offset: 0, top: 17, bottom: 23)
+        _ = try pipeline.ingest(host) { self.image(host) }
+        let first = try chromeFrame(target, offset: 0, top: 17, bottom: 23)
+        _ = try pipeline.ingest(first) { self.image(first) }
+        for offset in [0, 12] {
+            let original = try chromeFrame(target, offset: offset, top: 17, bottom: 23)
+            var bytes = original.pixels
+            for x in 0..<12 { bytes[x] = 9 }
+            let gray = try GrayFrame(width: original.width, height: original.height, pixels: bytes)
+            let result = try pipeline.ingest(gray) { self.image(gray) }
+            if offset == 0 { XCTAssertTrue(result.strips.isEmpty) }
+            else {
+                XCTAssertEqual(result.status, .advanced)
+                XCTAssertEqual(pixels(try XCTUnwrap(result.strips.first?.fullImage)), first.pixels)
+            }
+        }
+        XCTAssertEqual(pipeline.diagnostics.provisionalReplacements, 1)
+    }
+
+    func testPromotionFailurePreservesOldStillAndRenderFailureAfterPromotionPreservesTarget() throws {
+        for failPromotion in [true, false] {
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: root) }
+            let repository = try CaptureSessionRepository(rootURL: root)
+            var session = try repository.createSession(configuration: .init())
+            let pipeline = CaptureFramePipeline(configuration: .init(), repository: repository, sessionID: session.id)
+            let host = scene(seed: 4), target = scene(seed: 91)
+            _ = try feed(pipeline, source: host, offset: 0)
+            _ = try feed(pipeline, source: target, offset: 0)
+            if failPromotion {
+                // A concurrent terminal manifest makes promotion fail its
+                // transactional publication precondition, before replacing PNG.
+                session = try repository.loadSession(id: session.id)
+                session.status = .completed; try repository.saveManifest(session)
+            }
+            let current = try frame(target, offset: 12)
+            XCTAssertThrowsError(try pipeline.ingest(current) { throw CaptureStorageError.imageEncodingFailed })
+            XCTAssertFalse(pipeline.hasStarted)
+            let expected = failPromotion ? host : target
+            XCTAssertEqual(pixels(try XCTUnwrap(pipeline.takeSingleFrameFallback())), Array(expected.prefix(120 * 48)))
+            let published = try repository.loadSession(id: session.id)
+            let candidate = try XCTUnwrap(published.provisionalFrame)
+            let url = try repository.stripURL(candidate, sessionID: session.id)
+            XCTAssertEqual(pixels(try XCTUnwrap(UIImage(contentsOfFile: url.path)?.cgImage)), Array(expected.prefix(120 * 48)))
+        }
+    }
+
+    func testFadeAndScalingSceneTransitionsDoNotInventScrolling() throws {
+        let target = scene(seed: 91)
+        for transition in ["fade", "scale", "localMove"] {
+            let pipeline = CaptureFramePipeline(configuration: .init())
+            _ = try feed(pipeline, source: scene(seed: 4), offset: 0)
+            for index in 0..<5 {
+                var bytes = Array(target.prefix(120 * 48))
+                for y in 0..<120 {
+                    for x in 0..<48 {
+                        let position = y * 48 + x
+                        switch transition {
+                        case "fade": bytes[position] = UInt8(Int(bytes[position]) * (index + 2) / 8)
+                        case "scale":
+                            let sourceX = min(47, x * (6 + index) / 10)
+                            let sourceY = min(119, y * (6 + index) / 10)
+                            bytes[position] = target[sourceY * 48 + sourceX]
+                        default:
+                            if (20..<35).contains(y), (4..<10).contains(x) {
+                                bytes[position] = target[(y + index * 3) * 48 + x]
+                            }
+                        }
+                    }
+                }
+                bytes[0] = UInt8(index)
+                let gray = try GrayFrame(width: 48, height: 120, pixels: bytes)
+                let result = try pipeline.ingest(gray) { self.image(gray) }
+                XCTAssertTrue(result.strips.isEmpty, transition)
+            }
+            XCTAssertFalse(pipeline.hasStarted, transition)
+        }
+    }
+
+    func testRecoveryTemporaryPNGIsBoundedAndRemovedOnStopAndDeinit() throws {
+        func files() throws -> Set<String> {
+            Set(try FileManager.default.contentsOfDirectory(atPath: FileManager.default.temporaryDirectory.path)
+                .filter { $0.hasPrefix("Longlet-Recovery-") })
+        }
+        let before = try files()
+        var pipeline: CaptureFramePipeline? = CaptureFramePipeline(configuration: .init())
+        _ = try feed(try XCTUnwrap(pipeline), source: scene(seed: 4), offset: 0)
+        for seed in UInt64(90)...94 {
+            _ = try feed(try XCTUnwrap(pipeline), source: scene(seed: seed), offset: 0)
+            XCTAssertEqual(try files().subtracting(before).count, 1)
+        }
+        _ = pipeline?.takeSingleFrameFallback()
+        XCTAssertEqual(try files(), before)
+        pipeline = CaptureFramePipeline(configuration: .init())
+        _ = try feed(try XCTUnwrap(pipeline), source: scene(seed: 4), offset: 0)
+        _ = try feed(try XCTUnwrap(pipeline), source: scene(seed: 91), offset: 0)
+        XCTAssertEqual(try files().subtracting(before).count, 1)
+        pipeline = nil
+        XCTAssertEqual(try files(), before)
     }
 }

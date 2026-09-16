@@ -1,8 +1,9 @@
 import Foundation
 
 /// ReplayKit's pause is a reversible lifecycle event. It does not authorize a
-/// terminal error or a new stitching origin. Only a verified frame may complete
-/// the resume transition when a pre-pause reference exists.
+/// terminal error. Only established continuous content requires a verified
+/// overlap after resume; a provisional startup still may find a new origin.
+/// Adapters pass hasStarted, never the mere existence of a provisional image.
 public struct CaptureLifecyclePolicy: Sendable {
     public enum State: String, Sendable { case active, paused, awaitingOverlap, finished }
     public private(set) var state: State = .active

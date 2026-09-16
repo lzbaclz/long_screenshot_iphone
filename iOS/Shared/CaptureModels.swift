@@ -133,6 +133,15 @@ public struct CaptureDiagnostics: Codable, Equatable, Sendable {
     public var maximumProcessingMilliseconds = 0.0
     public var terminationCause: String?
     /// Optional additions decode existing schema-1 diagnostics without migration.
+    /// Video callbacks before throttling; nil means this build did not record them.
+    public var receivedVideoSamples: Int?
+    /// initialOverlap / adjacentSceneOverlap / stableSceneReplacement.
+    public var startupRecoveryMethod: String?
+    /// waitingForFrames / waitingForTarget / confirmed; never inferred from elapsed time.
+    public var startupWaitingState: String?
+    /// Active seconds before confirmed stitching, excluding system pauses; frozen on confirmation.
+    public var startupWaitingSeconds: Double?
+    public var stableCandidateFrameCount: Int?
     public var stageTimings: CaptureStageTimings?
     public var lifecycleState: String?
     public var foregroundStatus: String?
