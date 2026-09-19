@@ -28,8 +28,6 @@
 	<true/>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>将你制作的长截图保存到相册。</string>
-	<key>ProProductIdentifier</key>
-	<string>dev.lzbaclz.longscreenshot.pro</string>
 	<key>SharedAppGroupIdentifier</key>
 	<string>$(APP_GROUP_IDENTIFIER)</string>
 	<key>UIApplicationSceneManifest</key>

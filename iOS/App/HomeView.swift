@@ -2,7 +2,6 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject private var library: CaptureLibrary
-    @EnvironmentObject private var purchases: PurchaseStore
     @AppStorage("hasSeenCaptureGuide") private var hasSeenGuide = false
     @State private var showGuide = false
     @State private var showSettings = false

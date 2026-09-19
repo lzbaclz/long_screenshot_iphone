@@ -51,18 +51,40 @@ final class ScrollCaptureUITests: XCTestCase {
         app.navigationBars["编辑长图"].buttons["取消"].tap()
     }
 
-    func testSettingsShowsFiniteBetaAllowanceAndPrivacy() {
-        app.buttons["home.settings"].tap()
-        XCTAssertTrue(app.buttons["settings.idleStop"].waitForExistence(timeout: 5))
-        app.swipeUp()
-        let remaining = element("settings.remainingExports")
-        XCTAssertTrue(remaining.waitForExistence(timeout: 5))
-        XCTAssertTrue(remaining.label.contains("/ 50"), "Beta settings must show a finite 50-work allowance")
-        XCTAssertFalse(app.buttons["settings.upgrade"].exists)
-        XCTAssertTrue(app.buttons["purchase.restore"].exists)
-        attachScreenshot("settings-beta-fifty")
-        app.buttons["settings.privacy"].tap()
-        XCTAssertTrue(app.staticTexts["只在你的设备上处理"].waitForExistence(timeout: 5))
+    func testFreeReleaseSettingsAndPrivacyInBothLanguages() {
+        for language in ["zh-Hans", "en"] {
+            app.terminate()
+            app.launchArguments = ["--demo", "--uitesting", "-AppleLanguages", "(\(language))",
+                                   "-AppleLocale", language == "en" ? "en_US" : "zh_CN"]
+            app.launch()
+            XCTAssertTrue(app.buttons["home.settings"].waitForExistence(timeout: 15))
+            app.buttons["home.settings"].tap()
+            XCTAssertTrue(app.buttons["settings.idleStop"].waitForExistence(timeout: 5))
+            let privacy = app.buttons["settings.privacy"]
+            for _ in 0..<4 where !privacy.isHittable { app.swipeUp() }
+            let remaining = element("settings.remainingExports")
+            XCTAssertTrue(remaining.waitForExistence(timeout: 5))
+            XCTAssertTrue(remaining.label.contains("50"), "The free release must show its finite weekly allowance")
+            XCTAssertFalse(app.buttons["settings.upgrade"].exists)
+            XCTAssertFalse(app.buttons["purchase.restore"].exists)
+            XCTAssertFalse(app.buttons["Restore purchases"].exists)
+            XCTAssertFalse(app.buttons["恢复购买"].exists)
+            let version = element("settings.version")
+            for _ in 0..<4 where !version.isHittable { app.swipeUp() }
+            XCTAssertTrue(version.waitForExistence(timeout: 5))
+            XCTAssertFalse(version.label.contains("Beta"))
+            XCTAssertFalse(version.label.contains("内测"))
+            XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "during the beta")).firstMatch.exists)
+            attachScreenshot("settings-free-\(language)")
+            privacy.tap()
+            XCTAssertTrue(app.staticTexts[language == "en" ? "Only on your device" : "只在你的设备上处理"].waitForExistence(timeout: 5))
+            let records = app.staticTexts[language == "en" ? "Export records" : "导出记录"]
+            for _ in 0..<4 where !records.isHittable { app.swipeUp() }
+            XCTAssertTrue(records.exists)
+            XCTAssertFalse(app.staticTexts["Purchases"].exists)
+            XCTAssertFalse(app.staticTexts["购买"].exists)
+            attachScreenshot("privacy-free-\(language)")
+        }
     }
 
     func testEmptyLegacyCaptureShowsFailureWithoutExportOrEditing() {

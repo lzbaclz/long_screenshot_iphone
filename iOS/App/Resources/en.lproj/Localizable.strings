@@ -135,7 +135,7 @@
 "原始画面暂时无法读取，请稍后重试。" = "The original frames could not be read. Please try again later.";
 "修改未保存，请检查剩余空间后重试。原始画面没有改变。" = "Your edits were not saved. Check your available storage and try again. Original frames are unchanged.";
 
-/* Settings and purchases. */
+/* Settings and free exports. */
 "停止方式" = "Stop capture";
 "手动停止" = "Manually";
 "静止 5 秒" = "After 5 seconds still";
@@ -152,37 +152,12 @@
 "忽略底部百分比" = "Percentage to exclude at the bottom";
 "固定栏调整" = "Fixed headers and footers";
 "如果应用顶部或底部的固定栏反复出现在长图中，可在下次捕捉前设置忽略区域。忽略的内容不会被保存。" = "If a fixed header or footer repeats in your screenshots, exclude that area before your next capture. Excluded content will not be saved.";
-"不限次数" = "Unlimited";
-"管理已解锁功能" = "Manage unlocked features";
-"了解无限导出" = "Explore unlimited exports";
 "导出" = "Export";
 "隐私与数据" = "Privacy and data";
 "版本" = "Version";
-"%@ · 内测版" = "%@ · Beta";
-"好内容，尽管留下" = "Keep more of what matters";
-"解锁无限导出，不再受每周次数限制。截图内容始终在本机处理。" = "Unlock unlimited exports with no weekly limit. Your screenshots are always processed on your device.";
-"无限次保存和分享" = "Unlimited saving and sharing";
 "PNG 与 JPEG 格式" = "PNG and JPEG formats";
 "无需账号，没有广告" = "No account. No ads.";
-"已解锁无限导出" = "Unlimited exports unlocked";
-"解锁 · %@" = "Unlock · %@";
-"购买暂未开放" = "Purchases are not available yet";
-"目前没有可购买的产品。你可以继续使用免费功能，稍后再来查看。" = "There is no product available to purchase right now. You can keep using the free features and check back later.";
 "重新加载" = "Reload";
-"恢复购买" = "Restore purchases";
-"无限导出" = "Unlimited exports";
-"购买状态" = "Purchase status";
-"这笔购买暂时无法确认，请稍后恢复购买。" = "This purchase could not be confirmed. Please try restoring purchases later.";
-"已解锁无限导出，谢谢支持长截图。" = "Unlimited exports are unlocked. Thank you for supporting Longlet.";
-"已解锁无限导出，谢谢支持续页。" = "Unlimited exports are unlocked. Thank you for supporting Longlet.";
-"购买状态正在更新，请稍后恢复购买。" = "Your purchase status is updating. Please try restoring purchases shortly.";
-"暂时无法验证购买，请稍后重试。" = "Your purchase could not be verified. Please try again later.";
-"购买正在等待确认，确认后会自动解锁。" = "Your purchase is awaiting approval. Features will unlock automatically once it is approved.";
-"购买尚未完成，请稍后重试。" = "Your purchase has not completed. Please try again later.";
-"购买未完成，请检查网络后重试。" = "Your purchase did not complete. Check your connection and try again.";
-"已恢复无限导出。" = "Unlimited exports restored.";
-"当前 Apple 账户下没有可恢复的购买。" = "No purchases could be restored for this Apple Account.";
-"暂时无法恢复购买，请稍后重试。" = "Purchases could not be restored. Please try again later.";
 
 /* Privacy. */
 "只在你的设备上处理" = "Only on your device";
@@ -195,7 +170,6 @@
 "隐私遮挡会以不透明色块写入导出的图片。为了能重新编辑，应用内仍保留原始画面；如需移除原始内容，请在导出后删除对应截图。删除应用内截图不会删除你已经导出的副本。" = "Redactions are applied as opaque blocks in exported images. Original frames stay in the app so you can edit again. To remove them, delete the capture after exporting. Deleting a capture in Longlet does not delete copies you have already exported.";
 "照片权限" = "Photo permission";
 "只有主动保存时，才请求向照片图库添加图片的权限。无需读取你的照片图库，也无需提供麦克风权限。" = "Permission to add images to Photos is requested only when you choose to save. Longlet does not need to read your photo library or access your microphone.";
-"购买" = "Purchases";
 
 /* Shared storage errors and persisted capture notices. */
 "无法访问共享存储。请检查 App 与广播扩展的 App Group 签名配置。" = "Shared storage is unavailable. Check the App Group signing configuration for the app and broadcast extension.";
@@ -238,7 +212,7 @@
 "试试裁剪起止位置，或圈选需要遮挡的区域。" = "Try cropping it or selecting an area to redact.";
 "无法安全识别固定栏或页面留白。请手动设置顶部和底部忽略区域后重试。" = "Fixed bars or page margins could not be identified safely. Set the top and bottom exclusion areas manually, then try again.";
 
-/* Bidirectional capture, honest failure states, and the finite beta allowance. */
+/* Bidirectional capture, honest failure states, and the finite weekly allowance. */
 "开始广播后，切到目标应用上下滑动" = "Start the broadcast, switch apps, then scroll up or down.";
 "返回目标应用上下滑动，前后画面保留重叠。结束时点按系统捕捉指示，或在这里停止。" = "Return to your app and scroll up or down, leaving overlap between views. When you are done, tap the system capture indicator or stop here.";
 "切到目标应用，上下自然滑动" = "Switch apps and scroll up or down";
@@ -258,9 +232,8 @@
 "暂时无法打开画面" = "Could not open the image";
 "剩余 %lld / %lld" = "%lld of %lld remaining";
 "本周免费导出" = "Free exports this week";
-"测试版每周可免费导出 %lld 个新作品，每周一按设备本地时间更新额度。同一作品重复保存或分享始终只计一次，取消或失败不扣次数。历史记录保存在本机，正常升级不会清空本周已用次数。" = "Export %lld new works for free each week during the beta. Your allowance renews on Monday in your device’s time zone. Saving or sharing the same work again always counts only once; canceled or failed attempts do not count. Records stay on this device, and app updates keep your current weekly usage.";
+"每周可免费导出 %lld 个新作品，每周一按设备本地时间更新额度。同一作品重复保存或分享始终只计一次，取消或失败不扣次数。历史记录保存在本机，正常升级不会清空本周已用次数。" = "Export %lld new works for free each week. Your allowance renews on Monday in your device’s time zone. Saving or sharing the same work again always counts only once; canceled or failed attempts do not count. Records stay on this device, and app updates keep your current weekly usage.";
 "本周免费额度已用完，下周一恢复。已导出的作品仍可重复保存和分享；捕捉、查看和编辑不受影响。" = "This week’s free allowance has been used. It renews next Monday. You can still save and share previously exported works, and continue capturing, viewing, and editing.";
-"已有购买的恢复与验证由 Apple 处理，续页不收集付款资料。每周额度和成功导出记录保存在本机，正常升级会保留。" = "Apple handles restoring and verifying existing purchases. Longlet does not collect payment details. Your weekly allowance and successful export records stay on this device and are kept when you update the app.";
 "正在确认滚动区域，请缓慢滚动并等待画面稳定。" = "Confirming the scrolling area. Scroll gently and let the view settle.";
 "画面暂时无法连续衔接，已保存已确认的连续长图。请降低滑动速度后重试。" = "The views could not be joined continuously. The confirmed continuous screenshot has been saved. Try again with slower scrolling.";
 "未写入可用画面。请重新开始捕捉，进入目标页面后缓慢滚动。" = "No usable frames were written. Start a new capture, switch to the page you want, then scroll gently.";
@@ -373,3 +346,5 @@
 "广播已结束。" = "Broadcast ended.";
 "停止后，查看结果" = "Stop and check the result";
 "点按屏幕顶部的系统捕捉指示结束，或返回续页点按停止。确认连续滚动后可编辑和保存长图；未确认时可能仅保留单屏，请查看提示后重新捕捉。" = "Tap the system capture indicator at the top of the screen to stop, or return to Longlet and tap Stop. Once continuous scrolling is confirmed, you can edit and save the long image. Otherwise, only a single screen may be kept; check the notice and try again.";
+"导出记录" = "Export records";
+"每周额度和成功导出记录保存在本机，正常升级会保留。同一作品重复保存或分享不重复扣除额度。" = "Your weekly allowance and successful export records stay on this device and are kept when you update the app. Saving or sharing the same work again does not use another export.";

@@ -11,6 +11,7 @@
 		06C75F8B53243077C06B840C /* ReplayKitDeviceSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 198AFB1541D50DB9F61DAD15 /* ReplayKitDeviceSmokeTests.swift */; };
 		072BF708E9AF0AD559F9A043 /* FixtureReaderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 151C0DDB9014AA61559616DB /* FixtureReaderApp.swift */; };
 		0D222052544A811FE31820D0 /* CaptureFramePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A05781DD3387B3F128C4B8 /* CaptureFramePipeline.swift */; };
+		12552F234F20D8A49B6CD4D0 /* ExportQuotaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16D3D8DBB1CDADAF96F97B6A /* ExportQuotaTests.swift */; };
 		14AFF02A09647D658FCC097C /* CaptureDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F42EAA44813229DB491DE0 /* CaptureDetailView.swift */; };
 		22190458F4F7F70461252593 /* CaptureModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2511FFA0A741C18B2BE97FB /* CaptureModels.swift */; };
 		260F9B07416F29026B579580 /* CaptureLifecyclePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807FF8A585B1F661DF2B5272 /* CaptureLifecyclePolicy.swift */; };
@@ -19,6 +20,7 @@
 		2E954BF7423D018AA9AD717B /* CaptureLifecyclePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807FF8A585B1F661DF2B5272 /* CaptureLifecyclePolicy.swift */; };
 		34DE5DC6C4D0EC37F6031540 /* CaptureGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C55E307475BF5D400686BEED /* CaptureGuideView.swift */; };
 		386EAAD57A12C4216B73250F /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 237C4A61753F86102AD878B7 /* README.md */; };
+		39D7AE030C26676C83CEF1FF /* ExportQuotaStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A51EACF8680FE13D5A502D9E /* ExportQuotaStore.swift */; };
 		3ABB49482750A8A32A0DCAE0 /* ScrollCaptureCore in Frameworks */ = {isa = PBXBuildFile; productRef = F087118BD173B9842909CC88 /* ScrollCaptureCore */; };
 		3D74D4AE1B61CE28C3577BF6 /* SeamCaptureAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D0805B55C8EFCF41E773DA /* SeamCaptureAcceptanceTests.swift */; };
 		3D82AD56E1355E4F6412BDBF /* CaptureStageTimings.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1297EE9389A8047240AE925 /* CaptureStageTimings.swift */; };
@@ -52,7 +54,6 @@
 		924328FD0D36126CCDCFE756 /* ScrollCaptureCore in Frameworks */ = {isa = PBXBuildFile; productRef = F0C2EE3C28C0494C5883D48F /* ScrollCaptureCore */; };
 		985D4457418F7D3B8E55600D /* GlassGridFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2248386826CE163287BE051F /* GlassGridFixture.swift */; };
 		98FAD98257663A5F2E17FFA4 /* HeaderCaptureAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F6334BB4BD9F0211D2427A /* HeaderCaptureAcceptanceTests.swift */; };
-		9A4EE9C21C70EEAE091F57B9 /* PurchaseQuotaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D96ABD3D30328164F7C0073 /* PurchaseQuotaTests.swift */; };
 		A166874F784F958B763C15F4 /* CaptureFramePipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40FC9B61B7555A7CE67903C3 /* CaptureFramePipelineTests.swift */; };
 		A482FF00164D29796D9D33B7 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 8DBB254E08A073750F127A27 /* InfoPlist.strings */; };
 		A97A838E2DEC00DB9F362A55 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1A25B57E40BC7160DDB4798B /* PrivacyInfo.xcprivacy */; };
@@ -60,7 +61,6 @@
 		B37158206C65612ECBFD3BBA /* PlatformViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86269EDADBDE13C6DCFF7ECE /* PlatformViews.swift */; };
 		B452807DD2507B423C56E75D /* CaptureModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2511FFA0A741C18B2BE97FB /* CaptureModels.swift */; };
 		B52DFF93E4F4D9BADD5FFBE5 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 703F1A25536D669653E1EC61 /* Theme.swift */; };
-		B7B9EBDF213B14CA37A1BC39 /* PurchaseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 204EA6E6D716773996746520 /* PurchaseStore.swift */; };
 		BABDDA9DC6C795B34E23AE5E /* CaptureSessionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77EF969C2888D2DF89DF88BA /* CaptureSessionRepository.swift */; };
 		BBA33FAC08339C673D93AFE1 /* CaptureStageTimings.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1297EE9389A8047240AE925 /* CaptureStageTimings.swift */; };
 		BC445B455892FBD598E415D4 /* HeaderSimulatorCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 250E43FE807F30EB3B74D3A4 /* HeaderSimulatorCaptureTests.swift */; };
@@ -143,12 +143,11 @@
 		0F5EAFB64C0FA5B5921FFD8A /* WallpaperAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallpaperAcceptanceTests.swift; sourceTree = "<group>"; };
 		151C0DDB9014AA61559616DB /* FixtureReaderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureReaderApp.swift; sourceTree = "<group>"; };
 		15C88E46E946A8D1FD9B72D1 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		16D3D8DBB1CDADAF96F97B6A /* ExportQuotaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportQuotaTests.swift; sourceTree = "<group>"; };
 		198AFB1541D50DB9F61DAD15 /* ReplayKitDeviceSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayKitDeviceSmokeTests.swift; sourceTree = "<group>"; };
 		1A25B57E40BC7160DDB4798B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		1B9374A2A930DD9521133DCB /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		1CC93B87449D8A6DDC061CB3 /* ScrollCaptureDeviceTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ScrollCaptureDeviceTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		1D96ABD3D30328164F7C0073 /* PurchaseQuotaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseQuotaTests.swift; sourceTree = "<group>"; };
-		204EA6E6D716773996746520 /* PurchaseStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseStore.swift; sourceTree = "<group>"; };
 		2248386826CE163287BE051F /* GlassGridFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassGridFixture.swift; sourceTree = "<group>"; };
 		237C4A61753F86102AD878B7 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		23A27693329C3A825BE6CB5F /* CaptureStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureStorageTests.swift; sourceTree = "<group>"; };
@@ -182,6 +181,7 @@
 		919E735FF0DCC5B2516A5006 /* GlassSeamSimulatorCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassSeamSimulatorCaptureTests.swift; sourceTree = "<group>"; };
 		9BCFE8BAB9D0118AA42A4E6D /* FixtureReader.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FixtureReader.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9F87C6E72A790EE5F51D4883 /* ScrollCapture.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ScrollCapture.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A51EACF8680FE13D5A502D9E /* ExportQuotaStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportQuotaStore.swift; sourceTree = "<group>"; };
 		A665AE315C9FD3C72568E58E /* SampleHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleHandler.swift; sourceTree = "<group>"; };
 		A6D0805B55C8EFCF41E773DA /* SeamCaptureAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeamCaptureAcceptanceTests.swift; sourceTree = "<group>"; };
 		A7862C47956FE1C4A3742B3B /* ScrollCaptureSimulatorCaptureTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ScrollCaptureSimulatorCaptureTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -259,7 +259,7 @@
 		17D9BCEC49AC6E7899713CBE /* AppTests */ = {
 			isa = PBXGroup;
 			children = (
-				1D96ABD3D30328164F7C0073 /* PurchaseQuotaTests.swift */,
+				16D3D8DBB1CDADAF96F97B6A /* ExportQuotaTests.swift */,
 			);
 			path = AppTests;
 			sourceTree = "<group>";
@@ -325,9 +325,9 @@
 				C55E307475BF5D400686BEED /* CaptureGuideView.swift */,
 				4FBA6309072FB891DD83011D /* CaptureLibrary.swift */,
 				EFA5E50D547EBAD67ECE1ED8 /* DemoCaptureFactory.swift */,
+				A51EACF8680FE13D5A502D9E /* ExportQuotaStore.swift */,
 				573CBCFBCFF002F07D63187E /* HomeView.swift */,
 				86269EDADBDE13C6DCFF7ECE /* PlatformViews.swift */,
-				204EA6E6D716773996746520 /* PurchaseStore.swift */,
 				67E35A3D9D7331E1A6DD07AC /* ScrollCaptureApp.swift */,
 				71C48E9993CF9A2530541EE7 /* SettingsView.swift */,
 				703F1A25536D669653E1EC61 /* Theme.swift */,
@@ -757,9 +757,9 @@
 				A166874F784F958B763C15F4 /* CaptureFramePipelineTests.swift in Sources */,
 				271221DB1EC05884B4E56260 /* CaptureLifecyclePolicyTests.swift in Sources */,
 				54C382E21F63A0EFEC6E6FED /* CaptureStorageTests.swift in Sources */,
+				12552F234F20D8A49B6CD4D0 /* ExportQuotaTests.swift in Sources */,
 				FAA5CF9DF2FB6EB9CBFD81DD /* ForegroundPipelineIntegrationTests.swift in Sources */,
 				98FAD98257663A5F2E17FFA4 /* HeaderCaptureAcceptanceTests.swift in Sources */,
-				9A4EE9C21C70EEAE091F57B9 /* PurchaseQuotaTests.swift in Sources */,
 				3D74D4AE1B61CE28C3577BF6 /* SeamCaptureAcceptanceTests.swift in Sources */,
 				8795BE3AE2753F9A58D503DB /* ShortChatAcceptanceTests.swift in Sources */,
 				D2157D5786E368E30D58CEB8 /* UpwardStartRegressionTests.swift in Sources */,
@@ -801,9 +801,9 @@
 				F434C5B732FE41935E046C4D /* CaptureSessionRepository.swift in Sources */,
 				3D82AD56E1355E4F6412BDBF /* CaptureStageTimings.swift in Sources */,
 				810D63CDA5B53A1EF7AB24C0 /* DemoCaptureFactory.swift in Sources */,
+				39D7AE030C26676C83CEF1FF /* ExportQuotaStore.swift in Sources */,
 				54A77EAFC7CF548145DABAFF /* HomeView.swift in Sources */,
 				B37158206C65612ECBFD3BBA /* PlatformViews.swift in Sources */,
-				B7B9EBDF213B14CA37A1BC39 /* PurchaseStore.swift in Sources */,
 				7EEE72FA607120D4CEA021A8 /* ScreenCaptureKit27Coordinator.swift in Sources */,
 				50E73D05F4AE08492D463A15 /* ScreenCaptureKit27FrameSink.swift in Sources */,
 				520CD00E841AFF1AFE3CDFBD /* ScrollCaptureApp.swift in Sources */,
@@ -1219,7 +1219,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1240,7 +1240,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 0.1.6;
+				MARKETING_VERSION = 0.1.7;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1347,7 +1347,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1368,7 +1368,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 0.1.6;
+				MARKETING_VERSION = 0.1.7;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1452,7 +1452,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1467,7 +1467,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 0.1.6;
+				MARKETING_VERSION = 0.1.7;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

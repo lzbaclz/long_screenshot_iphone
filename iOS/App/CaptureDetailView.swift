@@ -3,7 +3,7 @@ import UIKit
 
 struct CaptureDetailView: View {
     @EnvironmentObject private var library: CaptureLibrary
-    @EnvironmentObject private var purchases: PurchaseStore
+    @EnvironmentObject private var exportQuota: ExportQuotaStore
     @Environment(\.dismiss) private var dismiss
     let sessionID: UUID
     @State private var session: CaptureSessionManifest?
@@ -87,7 +87,7 @@ struct CaptureDetailView: View {
         }
         .sheet(item: $shareFile) { item in
             ShareImageSheet(url: item.url) { completed in
-                purchases.recordShareCompletion(sessionID: sessionID, completed: completed)
+                exportQuota.recordShareCompletion(sessionID: sessionID, completed: completed)
             }
         }
         .confirmationDialog("删除这张长图？", isPresented: $showDelete, titleVisibility: .visible) {
@@ -290,7 +290,7 @@ struct CaptureDetailView: View {
 
     private func beginExport(_ action: ExportAction) {
         guard !isBusy, session?.hasImage == true, preview != nil else { return }
-        guard purchases.canExport(sessionID: sessionID) else {
+        guard exportQuota.canExport(sessionID: sessionID) else {
             message = String(localized: "本周免费额度已用完，下周一恢复。已导出的作品仍可重复保存和分享；捕捉、查看和编辑不受影响。")
             return
         }
@@ -307,7 +307,7 @@ struct CaptureDetailView: View {
             switch pendingAction {
             case .photos:
                 try await PhotoExporter.save(url)
-                purchases.recordSuccessfulExport(sessionID: sessionID)
+                exportQuota.recordSuccessfulExport(sessionID: sessionID)
                 message = String(localized: "已保存到照片。")
             case .share:
                 shareFile = SharedImage(url: url)

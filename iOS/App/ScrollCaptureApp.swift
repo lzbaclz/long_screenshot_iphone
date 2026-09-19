@@ -3,16 +3,15 @@ import SwiftUI
 @main
 struct ScrollCaptureApp: App {
     @StateObject private var library = CaptureLibrary()
-    @StateObject private var purchases = PurchaseStore()
+    @StateObject private var exportQuota = ExportQuotaStore()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             HomeView()
                 .environmentObject(library)
-                .environmentObject(purchases)
+                .environmentObject(exportQuota)
                 .preferredColorScheme(.light)
-                .task { await purchases.start() }
                 .task {
                     while !Task.isCancelled {
                         if scenePhase == .active { library.refresh() }

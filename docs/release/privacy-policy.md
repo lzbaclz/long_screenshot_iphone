@@ -1,6 +1,6 @@
 # 续页 Xuye / Longlet 隐私政策
 
-生效日期：2026年9月15日。适用：续页 App 0.1.0–0.1.5 与续页 Xuye 官网。官网使用拼音品牌 Xuye；当前 App / TestFlight 英文显示名仍为 Longlet。服务提供者：Ziqing Li（子卿 李），与当前 App Store Connect 开发者账号一致。支持邮箱：**chestnutlee23@163.com**。
+生效日期：2026年9月19日。适用：续页 App 0.1.7 与续页 Xuye 官网。官网使用拼音品牌 Xuye；当前 App / TestFlight 英文显示名仍为 Longlet。服务提供者：Ziqing Li（子卿 李），与当前 App Store Connect 开发者账号一致。支持邮箱：**chestnutlee23@163.com**。
 
 ## 中文
 
@@ -19,7 +19,6 @@
 - 原始图片分块、生成的导出文件，以及图片尺寸、创建时间、捕捉状态和失败说明。
 - 裁剪、接缝调整和遮挡矩形等编辑记录，以及停止方式、长度和固定栏设置。
 - 本机导出记录的随机会话标识与日期，用于免费额度计算和避免同一作品重复计数。
-- 通过 Apple StoreKit 核验的既有购买权限状态；当前 0.1.5 版本不提供新购买入口。
 - 本机采集诊断，包括帧计数、各处理阶段的次数与耗时、暂停／恢复计数、匹配候选／支持点数量、匹配区域／帧高／固定结构保护范围、接缝默认与实际位置、候选数量、替换行数和评分及停止原因；诊断不包含识别出的文字或来源应用名称，也不会自动发送给开发者。起点候选图片在本机暂存，成功拼接后清理；中断后可作为明确标注的单屏恢复。
 
 当前版本不要求建立开发者账号，没有广告或第三方行为分析 SDK，也不进行跨应用广告跟踪。应用不需要读取照片图库、通讯录、位置或摄像头。
@@ -34,11 +33,11 @@
 
 截图存储目录被设置为不参加系统备份，文件使用 iOS 数据保护。应用不提供自己的云同步；你导出的副本仍可能由照片、文件服务或备份设置同步。请按相应服务的设置管理这些副本。
 
-### Apple 购买、系统服务与支持邮件
+### 免费额度、Apple 系统服务与支持邮件
 
-当前 0.1.5 版本提供每周 50 个新作品的免费导出额度，不提供新购买入口。已有权益的核验与恢复通过 Apple StoreKit 处理。
+0.1.7 版本免费提供每周 50 个新作品的导出额度，不包含 App 内购买或订阅。额度按设备本地时间每周一更新；失败、取消和同一作品的重复导出不多扣次数，正常升级保留已有导出记录。应用不读取或验证购买记录。
 
-Pro 购买和恢复由 Apple StoreKit 与 App Store 处理。开发者不接收你的完整付款卡信息，也没有自行运营的支付服务器。Apple 会按其服务规则处理购买、下载、诊断以及你选择发送的 TestFlight 反馈；参见 [Apple 隐私政策](https://www.apple.com/legal/privacy/)。
+应用不收集付款资料，也没有支付服务器。Apple 会按其服务规则处理应用下载、诊断以及你选择发送的 TestFlight 反馈；参见 [Apple 隐私政策](https://www.apple.com/legal/privacy/)。
 
 如果你主动发邮件求助，我们会收到你的邮箱地址、邮件正文和你自行附加的内容，并用它们处理该请求。邮件通过邮箱服务处理，不是应用自动上传。请只提供排查所需信息，避免附带未经遮挡的私人聊天。支持邮件的保留以解决请求及履行适用义务所需为限；可通过上述邮箱提出查阅或删除请求。我们无法替你删除已经发送给其他接收方的副本。
 
@@ -56,7 +55,7 @@ Pro 购买和恢复由 Apple StoreKit 与 App Store 处理。开发者不接收�
 
 ### Who provides Longlet
 
-Longlet, named 续页 in Simplified Chinese, is an iPhone app for creating long screenshots. The provider is Ziqing Li, identified as the seller on its App Store page. Effective date: September 15, 2026. The policy also covers the Xuye website; Xuye is the website brand, while the current English app/TestFlight name remains Longlet. App versions covered: 0.1.0–0.1.5. Contact: **chestnutlee23@163.com**.
+Longlet, named 续页 in Simplified Chinese, is an iPhone app for creating long screenshots. The provider is Ziqing Li, identified as the seller on its App Store page. Effective date: September 19, 2026. The policy also covers the Xuye website; Xuye is the website brand, while the current English app/TestFlight name remains Longlet. App versions covered: 0.1.7. Contact: **chestnutlee23@163.com**.
 
 ### Screen processing
 
@@ -66,7 +65,7 @@ The current version matches overlapping content on your device and saves accepte
 
 ### Information stored locally
 
-Local information includes original image strips, exported files, dimensions, timestamps, capture status and error descriptions; crop, seam and redaction edits; capture preferences; and random session identifiers and export dates used to apply the free allowance without counting the same capture twice. The app also checks existing Apple StoreKit purchase entitlements. Version 0.1.5 does not offer new purchases.
+Local information includes original image strips, exported files, dimensions, timestamps, capture status and error descriptions; crop, seam and redaction edits; capture preferences; and random session identifiers and export dates used to apply the free allowance without counting the same capture twice.
 
 Local capture diagnostics include frame counts, per-stage processing counts and timing, pause/resume counts, numeric matching-candidate and support counts, matching regions/frame height/fixed-structure guard ranges, default and selected seam positions, candidate counts, replaced rows, scores, and stop reasons. They contain no recognized screen text or source app names and are not automatically sent to the developer. A provisional starting image is stored locally until stitching is committed; after an interruption it may be recovered as a clearly labeled single-screen image.
 
@@ -84,9 +83,9 @@ Capture storage is marked as excluded from system backups and uses iOS data prot
 
 ### Apple services and support
 
-Version 0.1.5 includes 50 new successful exports per week and does not offer new purchases. Existing entitlement checks and restoration are handled by Apple StoreKit.
+Version 0.1.7 is free and includes 50 new successful exports per week, with no in-app purchases or subscriptions. The allowance renews on Monday in the device’s local time zone. Failed, cancelled and repeated exports do not consume additional allowance, and app updates preserve existing export records. The app does not read or verify purchase history.
 
-Apple StoreKit and the App Store process Pro purchases and restoration. The developer does not receive complete payment-card details or operate a separate payment server. Apple handles purchases, downloads, diagnostics and feedback you choose to send through TestFlight under its own policies. See [Apple’s Privacy Policy](https://www.apple.com/legal/privacy/).
+The app does not collect payment details or operate a payment server. Apple handles app downloads, diagnostics and feedback you choose to send through TestFlight under its own policies. See [Apple’s Privacy Policy](https://www.apple.com/legal/privacy/).
 
 If you email support, we receive your email address, message and attachments and use them to address your request. This is handled through the email service, not automatically uploaded by the app. Send only information needed to investigate, and avoid attaching unredacted private conversations. Support correspondence is retained as needed to resolve the request and meet applicable obligations; you may request access or deletion using the contact above. We cannot delete copies you have sent to other recipients.
 

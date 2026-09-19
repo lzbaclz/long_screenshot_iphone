@@ -2,12 +2,12 @@ import XCTest
 @testable import ScrollCapture
 
 @MainActor
-final class PurchaseQuotaTests: XCTestCase {
+final class ExportQuotaTests: XCTestCase {
     private var defaults: UserDefaults!
     private var suite: String!
 
     override func setUp() async throws {
-        suite = "PurchaseQuotaTests.\(UUID().uuidString)"
+        suite = "ExportQuotaTests.\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)!
     }
 
@@ -16,17 +16,20 @@ final class PurchaseQuotaTests: XCTestCase {
         defaults = nil
     }
 
-    func testBetaStartsWithFiftyFiniteExportsBeforeStoreKitLoads() {
-        let store = PurchaseStore(defaults: defaults)
-        XCTAssertEqual(store.quotaPolicy, .beta(limit: 50))
+    func testFreeReleaseStartsWithFiftyFiniteExports() {
+        let store = ExportQuotaStore(defaults: defaults)
+        XCTAssertEqual(store.quotaPolicy, .weekly(limit: 50))
         XCTAssertEqual(store.exportLimit, 50)
         XCTAssertEqual(store.remainingExports, 50)
-        XCTAssertFalse(store.unlimited, "Debug and beta builds must exercise the actual finite allowance")
         XCTAssertTrue(store.canExport(sessionID: UUID()))
     }
 
+    func testReleaseBundleHasNoInAppPurchaseProduct() {
+        XCTAssertNil(Bundle.main.object(forInfoDictionaryKey: "ProProductIdentifier"))
+    }
+
     func testFortyNinthFiftiethAndFiftyFirstNewExports() {
-        let store = PurchaseStore(defaults: defaults)
+        let store = ExportQuotaStore(defaults: defaults)
         let sessions = (0..<51).map { _ in UUID() }
         for session in sessions.prefix(49) {
             XCTAssertTrue(store.canExport(sessionID: session))
@@ -44,14 +47,14 @@ final class PurchaseQuotaTests: XCTestCase {
         }
         XCTAssertEqual(store.remainingExports, 0)
         XCTAssertEqual(defaults.dictionary(forKey: "successfulCaptureExports.v1")?.count, 50)
-        let relaunched = PurchaseStore(defaults: defaults)
+        let relaunched = ExportQuotaStore(defaults: defaults)
         XCTAssertEqual(relaunched.remainingExports, 0)
         XCTAssertFalse(relaunched.canExport(sessionID: sessions[50]))
         XCTAssertTrue(relaunched.canExport(sessionID: sessions[0]))
     }
 
     func testFailedOrCancelledShareDoesNotConsumeAndSuccessfulRepeatCountsOnce() {
-        let store = PurchaseStore(defaults: defaults)
+        let store = ExportQuotaStore(defaults: defaults)
         let session = UUID()
         // Both cancellation and a failed activity report completed == false.
         store.recordShareCompletion(sessionID: session, completed: false)
@@ -63,7 +66,7 @@ final class PurchaseQuotaTests: XCTestCase {
         store.recordSuccessfulExport(sessionID: session)
         store.recordShareCompletion(sessionID: session, completed: true)
         XCTAssertEqual(store.remainingExports, 49)
-        XCTAssertEqual(PurchaseStore(defaults: defaults).remainingExports, 49)
+        XCTAssertEqual(ExportQuotaStore(defaults: defaults).remainingExports, 49)
     }
 
     func testPreviousThreeExportLedgerSurvivesUpgradeAndOnlyCurrentWeekCounts() {
@@ -73,7 +76,7 @@ final class PurchaseQuotaTests: XCTestCase {
         var ledger = Dictionary(uniqueKeysWithValues: currentSessions.map { ($0.uuidString, now) })
         ledger[oldSession.uuidString] = now.addingTimeInterval(-604_800)
         defaults.set(ledger, forKey: "successfulCaptureExports.v1")
-        let store = PurchaseStore(defaults: defaults, currentDate: { now })
+        let store = ExportQuotaStore(defaults: defaults, currentDate: { now })
         XCTAssertEqual(store.remainingExports, 47)
         XCTAssertEqual(defaults.dictionary(forKey: "successfulCaptureExports.v1") as? [String: Date], ledger)
         for session in currentSessions + [oldSession] {
@@ -83,7 +86,7 @@ final class PurchaseQuotaTests: XCTestCase {
         XCTAssertEqual(store.remainingExports, 47)
         let newSession = UUID()
         store.recordSuccessfulExport(sessionID: newSession)
-        let upgraded = PurchaseStore(defaults: defaults, quotaPolicy: .beta(limit: 50), currentDate: { now })
+        let upgraded = ExportQuotaStore(defaults: defaults, quotaPolicy: .weekly(limit: 50), currentDate: { now })
         XCTAssertEqual(upgraded.remainingExports, 46)
         let persisted = defaults.dictionary(forKey: "successfulCaptureExports.v1") as? [String: Date]
         for (id, date) in ledger { XCTAssertEqual(persisted?[id], date) }
@@ -94,7 +97,7 @@ final class PurchaseQuotaTests: XCTestCase {
         var calendar = Calendar(identifier: .iso8601)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         var now = calendar.date(from: DateComponents(year: 2026, month: 9, day: 13, hour: 23, minute: 59))!
-        let store = PurchaseStore(defaults: defaults, calendar: calendar, currentDate: { now })
+        let store = ExportQuotaStore(defaults: defaults, calendar: calendar, currentDate: { now })
         let oldSession = UUID()
         store.recordSuccessfulExport(sessionID: oldSession)
         for _ in 0..<49 { store.recordSuccessfulExport(sessionID: UUID()) }
@@ -106,14 +109,14 @@ final class PurchaseQuotaTests: XCTestCase {
         XCTAssertEqual(store.remainingExports, 50, "Repeating last week's work must not consume this week's allowance")
         store.recordSuccessfulExport(sessionID: UUID())
         XCTAssertEqual(store.remainingExports, 49)
-        XCTAssertEqual(PurchaseStore(defaults: defaults, calendar: calendar, currentDate: { now }).remainingExports, 49)
+        XCTAssertEqual(ExportQuotaStore(defaults: defaults, calendar: calendar, currentDate: { now }).remainingExports, 49)
         XCTAssertEqual(defaults.dictionary(forKey: "successfulCaptureExports.v1")?.count, 51)
     }
 
     func testExistingLedgerAboveFiftyIsPreservedWithoutNegativeAllowance() {
         let ledger = Dictionary(uniqueKeysWithValues: (0..<51).map { _ in (UUID().uuidString, Date()) })
         defaults.set(ledger, forKey: "successfulCaptureExports.v1")
-        let store = PurchaseStore(defaults: defaults)
+        let store = ExportQuotaStore(defaults: defaults)
         XCTAssertEqual(store.remainingExports, 0)
         XCTAssertFalse(store.canExport(sessionID: UUID()))
         XCTAssertEqual(defaults.dictionary(forKey: "successfulCaptureExports.v1") as? [String: Date], ledger)
@@ -124,7 +127,7 @@ final class PurchaseQuotaTests: XCTestCase {
         var calendar = Calendar(identifier: .iso8601)
         calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
         var now = calendar.date(from: DateComponents(year: 2026, month: 9, day: 13, hour: 23, minute: 59))!
-        let store = PurchaseStore(defaults: defaults, calendar: calendar, currentDate: { now })
+        let store = ExportQuotaStore(defaults: defaults, calendar: calendar, currentDate: { now })
         store.recordSuccessfulExport(sessionID: UUID())
         XCTAssertEqual(store.remainingExports, 49)
         now = now.addingTimeInterval(60)

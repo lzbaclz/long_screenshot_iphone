@@ -20,8 +20,8 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     TARGETED_DEVICE_FAMILY: "1"
     IPHONEOS_DEPLOYMENT_TARGET: "18.0"
-    MARKETING_VERSION: "0.1.6"
-    CURRENT_PROJECT_VERSION: "7"
+    MARKETING_VERSION: "0.1.7"
+    CURRENT_PROJECT_VERSION: "8"
     CODE_SIGN_STYLE: Automatic
     GENERATE_INFOPLIST_FILE: NO
     ENABLE_USER_SCRIPT_SANDBOXING: YES
@@ -70,7 +70,6 @@ targets:
         NSPhotoLibraryAddUsageDescription: 将你制作的长截图保存到相册。
         SharedAppGroupIdentifier: $(APP_GROUP_IDENTIFIER)
         BroadcastExtensionIdentifier: dev.lzbaclz.longscreenshot.BroadcastExtension
-        ProProductIdentifier: dev.lzbaclz.longscreenshot.pro
     entitlements:
       path: Config/App.entitlements
       properties:

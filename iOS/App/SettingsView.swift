@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var library: CaptureLibrary
-    @EnvironmentObject private var purchases: PurchaseStore
+    @EnvironmentObject private var exportQuota: ExportQuotaStore
     @Environment(\.dismiss) private var dismiss
     @State private var showPrivacy = false
 
@@ -57,26 +57,14 @@ struct SettingsView: View {
                     HStack {
                         Label("本周免费导出", systemImage: "square.and.arrow.up")
                         Spacer()
-                        Group {
-                            if purchases.unlimited { Text("不限次数") }
-                            else {
-                                Text(String(format: L10n.text("剩余 %lld / %lld"),
-                                            Int64(purchases.remainingExports), Int64(purchases.exportLimit)))
-                            }
-                        }
-                        .foregroundStyle(ScrollTheme.secondary)
-                        .accessibilityIdentifier("settings.remainingExports")
+                        Text(String(format: L10n.text("剩余 %lld / %lld"),
+                                    Int64(exportQuota.remainingExports), Int64(exportQuota.exportLimit)))
+                            .foregroundStyle(ScrollTheme.secondary)
+                            .accessibilityIdentifier("settings.remainingExports")
                     }
-                    if purchases.hasPro {
-                        Label("已解锁无限导出", systemImage: "checkmark.seal.fill")
-                            .foregroundStyle(ScrollTheme.teal)
-                    }
-                    Button("恢复购买") { Task { await purchases.restore() } }
-                        .disabled(purchases.isBusy)
-                        .accessibilityIdentifier("purchase.restore")
                 } header: { Text("导出") } footer: {
-                    Text(String(format: L10n.text("测试版每周可免费导出 %lld 个新作品，每周一按设备本地时间更新额度。同一作品重复保存或分享始终只计一次，取消或失败不扣次数。历史记录保存在本机，正常升级不会清空本周已用次数。"),
-                                Int64(purchases.exportLimit)))
+                    Text(String(format: L10n.text("每周可免费导出 %lld 个新作品，每周一按设备本地时间更新额度。同一作品重复保存或分享始终只计一次，取消或失败不扣次数。历史记录保存在本机，正常升级不会清空本周已用次数。"),
+                                Int64(exportQuota.exportLimit)))
                 }
 
                 Section {
@@ -87,7 +75,12 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("settings.support")
                     HStack { Text("应用"); Spacer(); Text(L10n.appName).foregroundStyle(ScrollTheme.secondary) }
-                    HStack { Text("版本"); Spacer(); Text(version).foregroundStyle(ScrollTheme.secondary) }
+                    HStack {
+                        Text("版本")
+                        Spacer()
+                        Text(version).foregroundStyle(ScrollTheme.secondary)
+                            .accessibilityIdentifier("settings.version")
+                    }
                 }
             }
             .scrollContentBackground(.hidden)
@@ -96,16 +89,11 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
             .sheet(isPresented: $showPrivacy) { PrivacyView() }
-            .alert("购买状态", isPresented: Binding(
-                get: { purchases.message != nil },
-                set: { if !$0 { purchases.message = nil } }
-            )) { Button("知道了") { purchases.message = nil } } message: { Text(purchases.message ?? "") }
         }
     }
 
     private var version: String {
-        let value = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1"
-        return String(localized: "\(value) · 内测版")
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1"
     }
 }
 
@@ -123,7 +111,7 @@ struct PrivacyView: View {
                     paragraph("本机保存", "截图和可恢复草稿保存在本机，不上传至我们的服务器，也不用于广告。捕捉文件不参与应用数据备份；卸载应用会移除应用内保存的内容。你主动保存到照片或分享到其他应用后，对应服务可能自行同步。")
                     paragraph("编辑与删除", "隐私遮挡会以不透明色块写入导出的图片。为了能重新编辑，应用内仍保留原始画面；如需移除原始内容，请在导出后删除对应截图。删除应用内截图不会删除你已经导出的副本。")
                     paragraph("照片权限", "只有主动保存时，才请求向照片图库添加图片的权限。无需读取你的照片图库，也无需提供麦克风权限。")
-                    paragraph("购买", "已有购买的恢复与验证由 Apple 处理，续页不收集付款资料。每周额度和成功导出记录保存在本机，正常升级会保留。")
+                    paragraph("导出记录", "每周额度和成功导出记录保存在本机，正常升级会保留。同一作品重复保存或分享不重复扣除额度。")
                     VStack(alignment: .leading, spacing: 8) {
                         Text("联系我们").font(.headline)
                         Link("chestnutlee23@163.com", destination: URL(string: "mailto:chestnutlee23@163.com")!)
